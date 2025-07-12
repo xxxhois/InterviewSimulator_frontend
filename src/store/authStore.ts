@@ -10,12 +10,12 @@ interface User {
 interface AuthState {
   // 状态
   token: string | null;
-  user: User | null;
+  //user: User | null;
   isLoggedIn: boolean;
   
   // 方法
   setToken: (token: string) => void;
-  setUser: (user: User) => void;
+  //setUser: (user: User) => void;
   logout: () => void;
   checkAuthStatus: () => Promise<boolean>;
 }
@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       // 初始状态
       token: null,
-      user: null,
+      //user: null,
       isLoggedIn: false,
 
       // 设置 token
@@ -34,14 +34,14 @@ export const useAuthStore = create<AuthState>()(
         localStorage.setItem('auth_token', token);
       },
 
-      // 设置用户信息
-      setUser: (user: User) => {
-        set({ user });
-      },
+      // // 设置用户信息
+      // setUser: (user: User) => {
+      //   set({ user });
+      // },
 
       // 登出
       logout: () => {
-        set({ token: null, user: null, isLoggedIn: false });
+        set({ token: null, /*user: null,*/ isLoggedIn: false });
         localStorage.removeItem('auth_token');
       },
 
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage', // localStorage 的 key
       partialize: (state) => ({ 
         token: state.token,
-        user: state.user,
+        //user: state.user,
         isLoggedIn: state.isLoggedIn 
       }),
     }

@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 const LoginPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setToken, setUser } = useAuthStore();
+  const { setToken/*, setUser*/ } = useAuthStore();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -74,13 +74,6 @@ const LoginPage = () => {
       // 存储 token 和用户信息
       if (response.token) {
         setToken(response.token);
-        
-        // 设置用户信息（这里可以根据实际API响应调整）
-        setUser({
-          user_id: response.user_id, // 实际应该从响应中获取
-          name: formData.username, // 或者从响应中获取
-          avatar: null
-        });
         
         // 登录成功，跳转到仪表板
         router.push('/dashboard');

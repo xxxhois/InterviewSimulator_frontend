@@ -15,10 +15,10 @@ export const useAuth = (options: UseAuthOptions = {}) => {
   
   const { 
     token, 
-    user, 
+    //user, 
     isLoggedIn, 
     setToken, 
-    setUser, 
+    //setUser, 
     logout, 
     checkAuthStatus 
   } = useAuthStore();
@@ -84,7 +84,7 @@ export const useAuth = (options: UseAuthOptions = {}) => {
       };
 
       setToken(mockToken);
-      setUser(mockUser);
+      //setUser(mockUser);
       localStorage.setItem('auth_token', mockToken);
       
       return { success: true };
@@ -104,7 +104,7 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     isLoading,
     isAuthenticated,
     isLoggedIn,
-    user,
+    //user,
     token,
     
     // 方法
@@ -116,11 +116,11 @@ export const useAuth = (options: UseAuthOptions = {}) => {
 
 // 简化版本，用于不需要重定向的组件
 export const useAuthStatus = () => {
-  const { isLoggedIn, user, token } = useAuthStore();
+  const { isLoggedIn, /*user,*/ token } = useAuthStore();
   
   return {
     isLoggedIn,
-    user,
+    //user,
     token,
   };
 };
