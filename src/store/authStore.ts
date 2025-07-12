@@ -17,7 +17,7 @@ interface AuthState {
   setToken: (token: string) => void;
   //setUser: (user: User) => void;
   logout: () => void;
-  checkAuthStatus: () => Promise<boolean>;
+  //checkAuthStatus: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -45,34 +45,34 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('auth_token');
       },
 
-      // 检查认证状态
-      checkAuthStatus: async () => {
-        const { token } = get();
+      // // 检查认证状态
+      // checkAuthStatus: async () => {
+      //   const { token } = get();
         
-        if (!token) {
-          return false;
-        }
+      //   if (!token) {
+      //     return false;
+      //   }
 
-        try {
-          // 这里应该调用实际的 API 来验证 token
-          // const response = await authApi.validateToken(token);
+      //   try {
+      //     // 这里应该调用实际的 API 来验证 token
+      //     // const response = await authApi.validateToken(token);
           
-          // 模拟 token 验证
-          // 在实际项目中，这里应该发送请求到后端验证 token
-          const isValid = token && token.length > 10;
+      //     // 模拟 token 验证
+      //     // 在实际项目中，这里应该发送请求到后端验证 token
+      //     const isValid = token && token.length > 10;
           
-          if (!isValid) {
-            get().logout();
-            return false;
-          }
+      //     if (!isValid) {
+      //       get().logout();
+      //       return false;
+      //     }
 
-          return true;
-        } catch (error) {
-          console.error('Token validation error:', error);
-          get().logout();
-          return false;
-        }
-      },
+      //     return true;
+      //   } catch (error) {
+      //     console.error('Token validation error:', error);
+      //     get().logout();
+      //     return false;
+      //   }
+      // },
     }),
     {
       name: 'auth-storage', // localStorage 的 key
