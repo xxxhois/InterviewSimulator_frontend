@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface UseAuthOptions {
   requireAuth?: boolean;

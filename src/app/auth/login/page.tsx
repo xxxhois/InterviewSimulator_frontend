@@ -1,18 +1,33 @@
 'use client';
 
 import { loginUser } from '@/api/user';
+import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const LoginPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { setToken, setUser } = useAuthStore();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // 检查URL参数中的成功消息
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message) {
+      setSuccessMessage(message);
+      // 清除URL参数
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [searchParams]);
 
   // 表单验证函数
   const validateForm = (): boolean => {
@@ -56,12 +71,25 @@ const LoginPage = () => {
       const response = await loginUser(formData.username, formData.password);
       console.log('登录成功:', response);
       
-      // 登录成功后的处理逻辑
-      // 例如：保存token、跳转到首页等
-      router.push('/dashboard');
+      // 存储 token 和用户信息
+      if (response.token) {
+        setToken(response.token);
+        
+        // 设置用户信息（这里可以根据实际API响应调整）
+        setUser({
+          user_id: response.user_id, // 实际应该从响应中获取
+          name: formData.username, // 或者从响应中获取
+          avatar: null
+        });
+        
+        // 登录成功，跳转到仪表板
+        router.push('/dashboard');
+      } else {
+        throw new Error('登录响应中没有token');
+      }
     } catch (error) {
       console.error('登录失败:', error);
-      setErrors({ submit: '登录失败，请检查邮箱和密码' });
+      setErrors({ submit: '登录失败，请检查用户名和密码' });
     } finally {
       setIsLoading(false);
     }
@@ -76,6 +104,17 @@ const LoginPage = () => {
         transition={{ duration: 0.5 }}
       >
         <h2 className="text-3xl font-bold text-purple-800 mb-6 text-center">登录账号</h2>
+
+        {successMessage && (
+          <motion.div 
+            className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <p className="text-green-600 text-sm">{successMessage}</p>
+          </motion.div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
