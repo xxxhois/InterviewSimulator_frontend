@@ -358,7 +358,7 @@ const MainDashboard = () => {
       </div>
 
       {/* 导航栏 */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-purple-200 sticky top-0 z-50">
+      <nav className="bg-white/90 backdrop-blur-md border-b border-purple-200 fixed top-0 left-0 right-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
@@ -416,7 +416,7 @@ const MainDashboard = () => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 relative z-10">
         {/* 功能卡片区域 */}
         <motion.div
           ref={containerRef}
