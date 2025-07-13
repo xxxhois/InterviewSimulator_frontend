@@ -12,6 +12,8 @@
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "@react-spring/parallax": "^10.0.1",
     "chart.js": "^4.5.0",
+    "echarts": "^5.6.0",
+    "echarts-for-react": "^3.0.2",
     "framer-motion": "^12.23.3",
     "gsap": "^3.13.0",
     "next": "15.3.5",
