@@ -1,6 +1,6 @@
 // API配置
 const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api',
+  baseUrl: 'http://localhost:8000',
 };
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -74,7 +74,7 @@ export async function apiRequest({ method, url, data, headers = {}, attachToken 
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
 
-    const response = await fetch(url, {
+    const response = await fetch(interceptedOptions.url, {  // 修复：使用 interceptedOptions.url
       method: interceptedOptions.method,
       headers: { ...defaultHeaders, ...interceptedOptions.headers },
       body: interceptedOptions.method !== 'GET' ? JSON.stringify(interceptedOptions.data) : undefined,

@@ -35,7 +35,7 @@ const HomePage = () => {
             </div>
             
             {/* Navigation Bar */}
-            <div className="absolute top-0 w-full flex justify-between items-center px-8 py-4 z-10">
+            <div className="absolute top-0 w-full flex justify-between items-center px-8 py-4 z-50">
               <motion.h1 
                 className="text-2xl font-bold text-purple-800"
                 initial={{ opacity: 0, x: -20 }}
@@ -52,13 +52,13 @@ const HomePage = () => {
               >
                 <button
                   onClick={() => router.push('/auth/login')}
-                  className="text-purple-800 font-medium hover:underline transition-all duration-300 hover:text-purple-600"
+                  className="text-purple-800 font-medium hover:underline transition-all duration-300 hover:text-purple-600 relative z-50"
                 >
                   登录
                 </button>
                 <button
                   onClick={() => router.push('/auth/register')}
-                  className="bg-purple-600 text-white px-4 py-1 rounded-lg hover:bg-purple-700 transition-all duration-300 hover:scale-105"
+                  className="bg-purple-600 text-white px-4 py-1 rounded-lg hover:bg-purple-700 transition-all duration-300 hover:scale-105 relative z-50"
                 >
                   注册
                 </button>
@@ -67,7 +67,7 @@ const HomePage = () => {
 
             {/* Hero Section */}
             <div className="h-full flex flex-col md:flex-row items-center justify-center px-6 md:px-16 relative z-10">
-              <div className="md:w-1/2 mb-12 md:mb-0 flex flex-col items-center">
+              <div className="md:w-1/2 mb-12 md:mb-0 flex flex-col items-center relative z-10">
                 <motion.h1
                   className="text-5xl font-bold text-purple-800 mb-4 text-center"
                   initial={{ opacity: 0, y: -30 }}
@@ -100,7 +100,7 @@ const HomePage = () => {
                 </motion.button>
               </div>
               <motion.div 
-                className="md:w-1/2"
+                className="md:w-1/2 relative z-10"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 1, delay: 0.3 }}
