@@ -1,87 +1,162 @@
-/**
- * 面试房间页面,待改
- * 
- * 
- * 
- * 
- * 
- * 
- */
 'use client';
 
-import { useState } from 'react';
-import { FiVideo, FiMic, FiPhoneOff } from 'react-icons/fi';
-import { AiOutlineFolder } from 'react-icons/ai';
+import { Dialog, Transition } from '@headlessui/react';
+import dynamic from 'next/dynamic';
+import { Fragment, useState } from 'react';
 
-export default function InterviewRoom() {
+// 动态引入 Monaco Editor，避免 SSR 问题
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
+
+// 预留：当前问题、提示、历史、视频流等接口
+const mockQuestion = {
+  title: '请实现一个斐波那契数列函数',
+  hint: '递归或动态规划均可，注意边界条件。',
+};
+const mockHistory = [
+  { question: '什么是闭包？', answer: '闭包是函数和其引用的变量环境的组合。' },
+  { question: '手写防抖函数', answer: 'function debounce(fn, delay) { /* ... */ }' },
+];
+
+const languageOptions = [
+  { label: 'Plain Text', value: 'plaintext' },
+  { label: 'JavaScript', value: 'javascript' },
+  { label: 'Python', value: 'python' },
+  { label: 'TypeScript', value: 'typescript' },
+  { label: 'Java', value: 'java' },
+  // 可扩展更多语言
+];
+
+export default function InterviewPage() {
+  // 代码内容、语言、弹窗状态
+  const [code, setCode] = useState('');
+  const [language, setLanguage] = useState('plaintext');
+  const [historyVisible, setHistoryVisible] = useState(false);
+
+  // 预留：当前问题、提示、历史、视频流等接口
+  const currentQuestion = mockQuestion; // TODO: 替换为实际接口
+  const historyList = mockHistory; // TODO: 替换为实际接口
+
   return (
-    <div className="h-screen w-screen bg-gray-900 text-white flex flex-col">
-      {/* 顶部控制栏 */}
-      <div className="flex justify-between items-center px-4 py-2 bg-gray-800 border-b border-gray-700">
-        <div className="text-purple-400 font-semibold text-lg">王民昕的面试</div>
-        <div className="space-x-2">
-          <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1 rounded">运行</button>
-          <button className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded">选择题目</button>
-        </div>
-      </div>
-
-      {/* 主内容区 */}
-      <div className="flex flex-1">
-        {/* 左侧文件栏 */}
-        <div className="w-1/5 bg-gray-800 border-r border-gray-700 p-4 space-y-2">
-          <div className="text-gray-400 font-semibold text-sm mb-2">📁 文件</div>
-          <ul className="text-sm space-y-1">
-            <li className="flex items-center text-purple-400"><AiOutlineFolder className="mr-1" /> src</li>
-            <li className="ml-4">App.js</li>
-            <li className="ml-4">SearchInput.js</li>
-            <li className="ml-4 text-gray-400">Index.js</li>
-          </ul>
-        </div>
-
-        {/* 中间代码编辑器 */}
-        <div className="w-3/5 p-4 bg-gray-900 border-r border-gray-700">
-          <div className="text-sm text-gray-400 mb-2">// 请修复下面代码问题</div>
-          <div className="bg-gray-800 rounded p-4 font-mono text-sm whitespace-pre h-full overflow-auto leading-relaxed">
-            {`import React from 'react';
-
-export default function SearchInput({ onChange }) {
-  return (
-    <div className="component-search-input">
-      <input onChange={onChange} />
-    </div>
-  );
-}`}
-          </div>
-        </div>
-
-        {/* 右侧运行/通话区 */}
-        <div className="w-1/5 bg-gray-800 p-4 flex flex-col justify-between">
-          <div>
-            <div className="text-center text-xs text-gray-400 mb-2">TALK IS CHEAP, SHOW ME THE <span className="text-purple-500">CODE</span></div>
-            <div className="bg-gray-900 h-32 rounded mb-4 text-xs p-2">终端输出区...</div>
-            <button className="bg-purple-600 hover:bg-purple-700 w-full py-1 rounded text-sm">Code With React</button>
-          </div>
-
-          {/* 视频区域 */}
-          <div className="flex space-x-2 mt-6 items-end">
-            <div className="bg-black w-20 h-20 rounded-md">👨‍💻我</div>
-            <div className="bg-black w-20 h-20 rounded-md">🧑‍🎓 王民昕</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 底部控制栏 */}
-      <div className="flex justify-between items-center px-4 py-2 bg-gray-800 border-t border-gray-700">
+    <div className="h-screen w-screen bg-gray-900 text-white flex flex-row">
+      {/* 左侧：问题区 */}
+      <div className="w-1/5 bg-gray-800 border-r border-gray-700 p-6 flex flex-col justify-between">
         <div>
-          <button className="text-sm bg-gray-700 hover:bg-gray-600 px-4 py-1 rounded">发起通话</button>
+          <div className="text-purple-400 font-bold text-lg mb-2">当前问题</div>
+          <div className="text-base mb-4">{currentQuestion.title}</div>
+          <div className="text-gray-400 text-sm font-semibold mb-1">提示</div>
+          <div className="text-gray-300 text-sm">{currentQuestion.hint}</div>
         </div>
-        <div className="flex space-x-4 text-xl text-white">
-          <FiVideo />
-          <FiMic />
-          <FiPhoneOff className="text-red-500" />
-        </div>
-        <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded text-sm">结束面试</button>
+        <button
+          className="mt-8 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
+          onClick={() => setHistoryVisible(true)}
+        >
+          查看历史记录
+        </button>
       </div>
+
+      {/* 中间：代码编辑区 */}
+      <div className="w-3/5 flex flex-col bg-gray-900 p-6">
+        <div className="flex items-center mb-2">
+          <span className="text-gray-400 text-sm mr-2">选择语言：</span>
+          <select
+            className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-sm outline-none"
+            value={language}
+            onChange={e => setLanguage(e.target.value)}
+          >
+            {languageOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1 min-h-0">
+          <MonacoEditor
+            height="calc(100vh - 120px)"
+            defaultLanguage={language}
+            language={language}
+            value={code}
+            theme="vs-dark"
+            onChange={v => setCode(v || '')}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 16,
+              fontFamily: 'Fira Mono, monospace',
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              automaticLayout: true,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 右侧：视频区 */}
+      <div className="w-1/5 bg-gray-800 p-6 flex flex-col justify-between items-center">
+        <div className="w-full">
+          <div className="text-center text-xs text-gray-400 mb-2">数字人面试官</div>
+          {/* 预留：面试官视频流 */}
+          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-6">🤖</div>
+        </div>
+        <div className="w-full">
+          <div className="text-center text-xs text-gray-400 mb-2">面试者</div>
+          {/* 预留：面试者视频流 */}
+          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl">🧑‍💻</div>
+        </div>
+      </div>
+
+      {/* 历史记录弹窗（Tailwind + Headless UI） */}
+      <Transition appear show={historyVisible} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setHistoryVisible(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-900/60" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-xl transform overflow-hidden rounded-2xl bg-gray-900 p-6 text-left align-middle shadow-xl transition-all border border-gray-700">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-bold leading-6 text-white mb-4"
+                  >
+                    历史问题与回答
+                  </Dialog.Title>
+                  <div className="space-y-4">
+                    {historyList.map((item, idx) => (
+                      <div key={idx} className="bg-gray-800 rounded p-4">
+                        <div className="text-purple-400 font-semibold mb-1">Q: {item.question}</div>
+                        <div className="text-gray-200">A: {item.answer}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
+                      onClick={() => setHistoryVisible(false)}
+                    >
+                      关闭
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }
