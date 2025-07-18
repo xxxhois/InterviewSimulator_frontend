@@ -1,3 +1,6 @@
+import { useAuthStore } from '@/store/authStore';
+import { useRouter } from 'next/navigation';
+
 // API配置
 const API_CONFIG = {
   baseUrl: 'http://localhost:8000',
@@ -47,6 +50,12 @@ async function responseInterceptor(response: Response): Promise<any> {
     const data = await response.json();
     console.log('✅ Success Response:', data);
     return data;
+  } else if (response.status === 401) {
+    // 未授权，自动登出
+    useAuthStore.getState().logout();
+    const router = useRouter();
+    router.push('/auth/login');
+    throw new Error('未授权，请重新登录');
   } else {
     // 非200状态码，检查响应内容是否有error字段
     try {

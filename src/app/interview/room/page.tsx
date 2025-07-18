@@ -12,10 +12,10 @@ const mockQuestion = {
   title: '请实现一个斐波那契数列函数',
   hint: '递归或动态规划均可，注意边界条件。',
 };
-const mockHistory = [
-  { question: '什么是闭包？', answer: '闭包是函数和其引用的变量环境的组合。' },
-  { question: '手写防抖函数', answer: 'function debounce(fn, delay) { /* ... */ }' },
-];
+// const mockHistory = [
+//   { question: '什么是闭包？', answer: '闭包是函数和其引用的变量环境的组合。' },
+//   { question: '手写防抖函数', answer: 'function debounce(fn, delay) { /* ... */ }' },
+// ];
 
 const languageOptions = [
   { label: 'Plain Text', value: 'plaintext' },
@@ -52,7 +52,7 @@ export default function InterviewPage() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('plaintext');
   const [historyVisible, setHistoryVisible] = useState(false);
-  const [historyList, setHistoryList] = useState(mockHistory); // 改为可变
+  const [historyList, setHistoryList] = useState<{ question: string; answer: string }[]>([]); // 初始为空
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   // 当前采集QA的索引，-1表示无
@@ -74,13 +74,6 @@ export default function InterviewPage() {
   // 采集与转写
   const startCollect = async () => {
     setTranscript('转写内容将实时显示在这里...');
-    // 新增一条QA记录，answer为空，并设置当前索引
-    setHistoryList((prev) => {
-      const newList = [...prev, { question: '实时转写', answer: '' }];
-      setCurrentQAIndex(newList.length - 1);
-      currentQAIndexRef.current = newList.length - 1;
-      return newList;
-    });
     // 获取音视频流
     const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localStreamRef.current = localStream;
@@ -108,7 +101,7 @@ export default function InterviewPage() {
             function extractChinese(obj: any): string {
               let result = '';
               if (typeof obj === 'string') {
-                result += obj.match(/[\u4e00-\u9fa5，。！？、；：“”‘’（）《》【】]/g)?.join('') || '';
+                result += obj.match(/[ -]|[\u4e00-\u9fa5，。！？、；：“”‘’（）《》【】]/g)?.join('') || '';
               } else if (Array.isArray(obj)) {
                 for (const item of obj) result += extractChinese(item);
               } else if (typeof obj === 'object' && obj !== null) {
@@ -119,20 +112,20 @@ export default function InterviewPage() {
             text = extractChinese(obj);
           } catch (e) {}
           setTranscript(text || '[无转写内容]');
-          // 先在 onmessage 作用域外部处理去重拼接
-          const idx = currentQAIndexRef.current;
-          if (idx === -1 || !text) return;
-          let last = lastTextRef.current;
-          let append = text.startsWith(last) ? text.slice(last.length) : text;
-          lastTextRef.current = text;
-          setHistoryList((prev) => {
-            const newList = [...prev];
-            newList[idx] = {
-              ...newList[idx],
-              answer: (newList[idx].answer || '') + append
-            };
-            return newList;
-          });
+          // 删除自动拼接到历史记录的逻辑
+          // const idx = currentQAIndexRef.current;
+          // if (idx === -1 || !text) return;
+          // let last = lastTextRef.current;
+          // let append = text.startsWith(last) ? text.slice(last.length) : text;
+          // lastTextRef.current = text;
+          // setHistoryList((prev) => {
+          //   const newList = [...prev];
+          //   newList[idx] = {
+          //     ...newList[idx],
+          //     answer: (newList[idx].answer || '') + append
+          //   };
+          //   return newList;
+          // });
         }
       } catch (e) {
         // 非JSON消息忽略
@@ -211,8 +204,19 @@ export default function InterviewPage() {
     lastTextRef.current = '';
   };
 
+  // 预留：获取历史记录的异步接口
+  async function getHistoryList() {
+    // TODO: 替换为实际后端请求
+    // const res = await fetch('/api/history');
+    // const data = await res.json();
+    // setHistoryList(data);
+    // 临时占位
+    setHistoryList([]);
+  }
+
   useEffect(() => {
-    // 页面卸载时清理
+    // 页面初始化时获取历史记录
+    getHistoryList();
     return () => {
       stopCollect();
     };

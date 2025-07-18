@@ -1,21 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+//import { LoginResponse } from '@/types/user';
 
 interface User {
   user_id: string;
-  name: string;
-  avatar?: string | null;
+  username: string;
 }
 
 interface AuthState {
   // 状态
   token: string | null;
-  //user: User | null;
+  user: User | null;
   isLoggedIn: boolean;
   
   // 方法
   setToken: (token: string) => void;
-  //setUser: (user: User) => void;
+  setUser: (user: User) => void;
   logout: () => void;
   //checkAuthStatus: () => Promise<boolean>;
 }
@@ -25,24 +25,27 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       // 初始状态
       token: null,
-      //user: null,
+      user: null,
       isLoggedIn: false,
 
       // 设置 token
       setToken: (token: string) => {
         set({ token, isLoggedIn: true });
         localStorage.setItem('auth_token', token);
+        
       },
 
-      // // 设置用户信息
-      // setUser: (user: User) => {
-      //   set({ user });
-      // },
+      // 设置用户信息
+      setUser: (user: User) => {
+        set({ user });
+        localStorage.setItem('auth_user', JSON.stringify(user));
+      },
 
       // 登出
       logout: () => {
-        set({ token: null, /*user: null,*/ isLoggedIn: false });
+        set({ token: null, user: null, isLoggedIn: false });
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
       },
 
       // // 检查认证状态

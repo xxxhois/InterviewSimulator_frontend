@@ -1,4 +1,4 @@
-interface ResumeBasic {
+export type ResumeBasic = {
   id: number;
   name: string;
   age: number;
@@ -7,7 +7,7 @@ interface ResumeBasic {
   expected_position: string;
 }
 
-interface ResumeDetail extends ResumeBasic {
+export type ResumeDetail = ResumeBasic & {
   created_at: string;
   work_experiences: {
     id: number;
@@ -44,7 +44,7 @@ interface ResumeDetail extends ResumeBasic {
   }[];
 }
 
-interface User {
+export type User = {
   id: number;
   username: string;
   email: string;
@@ -55,4 +55,11 @@ interface User {
   date_joined: string;
   last_login: string;
   resume_basic: ResumeBasic;
+}
+
+export type LoginResponse = {
+  token: string;
+  message: string;
+  user_id: string;
+  username: string;
 }
