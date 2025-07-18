@@ -55,6 +55,7 @@ export default function InterviewPage() {
   const [historyVisible, setHistoryVisible] = useState(false);
   const [historyList, setHistoryList] = useState<{ question: string; answer: string }[]>([]); // 初始为空
   const [transcript, setTranscript] = useState('');
+  const [question, setQuestion] = useState('');//面试官ws传输的当前语音
   const [isRecording, setIsRecording] = useState(false);
   // 当前采集QA的索引，-1表示无
   const [currentQAIndex, setCurrentQAIndex] = useState(-1);
@@ -75,6 +76,7 @@ export default function InterviewPage() {
   // 采集与转写
   const startCollect = async () => {
     setTranscript('转写内容将实时显示在这里...');
+    setQuestion('面试官问题将显示在这里');
     // 获取音视频流
     const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localStreamRef.current = localStream;
@@ -94,6 +96,7 @@ export default function InterviewPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('收到消息',data)
         if (data.type === 'asr_result') {
           let text = data.text;
           // 尝试提取所有中文
@@ -112,11 +115,28 @@ export default function InterviewPage() {
             }
             text = extractChinese(obj);
           } catch (e) {}
-          setTranscript(text || '[无转写内容]');
+          setTranscript(text);
           
         }
         else if (data.type === 'interview_message') {
-          console.log('interview_message', data);
+          setIsRecording(true);
+          let text = data.text;
+          try {
+            const obj = typeof text === 'string' ? JSON.parse(text) : text;
+            function extractChinese(obj: any): string {
+              let result = '';
+              if (typeof obj === 'string') {
+                result += obj.match(/[ -]|[\u4e00-\u9fa5，。！？、；：“”‘’（）《》【】]/g)?.join('') || '';
+              } else if (Array.isArray(obj)) {
+                for (const item of obj) result += extractChinese(item);
+              } else if (typeof obj === 'object' && obj !== null) {
+                for (const key in obj) result += extractChinese(obj[key]);
+              }
+              return result;
+            }
+            text = extractChinese(obj);
+          } catch (e) {}
+          setQuestion(text || '面试官问题将显示在这里');
         }
       } catch (e) {
         // 非JSON消息忽略
@@ -137,7 +157,7 @@ export default function InterviewPage() {
     workletNode.port.onmessage = (event) => {
       const inputData = event.data; // Float32Array
       // 检查采集到的音频数据
-      console.log('inputData[0~5]:', inputData.slice(0, 5));
+      //console.log('inputData[0~5]:', inputData.slice(0, 5));
       const inputSampleRate = audioContext.sampleRate;
       const targetSampleRate = 16000;
       const resampled = Array.from(downsampleBuffer(inputData, inputSampleRate, targetSampleRate));
@@ -154,7 +174,7 @@ export default function InterviewPage() {
       }
       let base64String = btoa(String.fromCharCode.apply(null, Array.from(pcmBytes)));
       if (wsRef.current && wsRef.current.readyState === 1) {
-        console.log('发送音频帧', base64String.length);
+        //console.log('发送音频帧', base64String.length);
         wsRef.current.send(JSON.stringify({type: 'audio_frame', audio_data: base64String}));
       }
     };
@@ -291,14 +311,14 @@ export default function InterviewPage() {
             className="text-base mb-4 break-words whitespace-pre-line max-w-full"
             style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
           >
-            {currentQuestion.title}
+            {question}
           </div>
-          <div className="text-gray-400 text-sm font-semibold mb-1">提示</div>
+          <div className="text-gray-400 text-sm font-semibold mb-1">面试官问题</div>
           <div
             className="text-gray-300 text-sm break-words whitespace-pre-line max-w-full"
             style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
           >
-            {currentQuestion.hint}
+            {currentQuestion.title}
           </div>
         </div>
         <div className="sticky bottom-0 left-0 right-0 bg-gray-800 p-4 flex flex-col gap-2 z-10 border-t border-gray-700">
@@ -421,7 +441,7 @@ export default function InterviewPage() {
             />
             {!isRecording && <span className="z-10"></span>}
           </div>
-          {/* <div className="mt-2 flex space-x-2 justify-center">
+          <div className="mt-2 flex space-x-2 justify-center">
             <button
               className={`px-3 py-1 rounded text-sm font-medium ${isRecording ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
               onClick={startCollect}
@@ -436,7 +456,7 @@ export default function InterviewPage() {
             >
               停止采集
             </button>
-          </div> */}
+          </div>
           <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{transcript}</div>
         </div>
       </div>
