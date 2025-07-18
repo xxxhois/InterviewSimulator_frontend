@@ -1,5 +1,6 @@
 'use client';
 
+import { runCode } from '@/api/test';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
 import { Fragment, useEffect, useRef, useState } from 'react';
@@ -112,20 +113,10 @@ export default function InterviewPage() {
             text = extractChinese(obj);
           } catch (e) {}
           setTranscript(text || '[无转写内容]');
-          // 删除自动拼接到历史记录的逻辑
-          // const idx = currentQAIndexRef.current;
-          // if (idx === -1 || !text) return;
-          // let last = lastTextRef.current;
-          // let append = text.startsWith(last) ? text.slice(last.length) : text;
-          // lastTextRef.current = text;
-          // setHistoryList((prev) => {
-          //   const newList = [...prev];
-          //   newList[idx] = {
-          //     ...newList[idx],
-          //     answer: (newList[idx].answer || '') + append
-          //   };
-          //   return newList;
-          // });
+          
+        }
+        else if (data.type === 'interview_message') {
+          console.log('interview_message', data);
         }
       } catch (e) {
         // 非JSON消息忽略
@@ -226,69 +217,200 @@ export default function InterviewPage() {
   // 预留：当前问题、提示、历史、视频流等接口
   const currentQuestion = mockQuestion; // TODO: 替换为实际接口
 
+  // 新增：代码区展开/收起
+  const [showEditor, setShowEditor] = useState(false);//默认收起
+  // // 响应式：小屏默认收起，大屏默认展开
+  // useEffect(() => {
+  //   const handleResize = () => {
+  //     if (window.innerWidth < 900) {
+  //       setShowEditor(false);
+  //     } else {
+  //       setShowEditor(true);
+  //     }
+  //   };
+  //   handleResize();
+  //   window.addEventListener('resize', handleResize);
+  //   return () => window.removeEventListener('resize', handleResize);
+  // }, []);
+
+  // 运行代码相关
+  const [stdin, setStdin] = useState('');
+  const [runResult, setRunResult] = useState<string>('');
+  const [isRunning, setIsRunning] = useState(false);
+  // 语言映射（language_id）
+  const languageIdMap: Record<string, number> = {
+    plaintext: 0,
+    javascript: 63,
+    python: 71,
+    typescript: 74,
+    java: 62,
+  };
+  // 运行代码
+  async function handleRunCode() {
+    setIsRunning(true);
+    setRunResult('');
+    try {
+      const res = await runCode(code, languageIdMap[language] || 0, stdin);
+      // 若stdout为空则显示stderr（红字）
+      if (res && typeof res === 'object') {
+        if (res.stdout && res.stdout.trim() !== '') {
+          setRunResult(res.stdout);
+        } else if (res.stderr && res.stderr.trim() !== '') {
+          // 用特殊标记包裹stderr，后续渲染时可用红色显示
+          setRunResult(`<stderr>${res.stderr}</stderr>`);
+        } else {
+          setRunResult('');
+        }
+      } else {
+        setRunResult('');
+      }
+    } catch (e: any) {
+      setRunResult(e?.message || '运行出错');
+    }
+    setIsRunning(false);
+  }
+
   return (
-    <div className="h-screen w-screen bg-gray-900 text-white flex flex-row">
-      {/* 左侧：问题区 */}
-      <div className="w-1/5 bg-gray-800 border-r border-gray-700 p-6 flex flex-col justify-between">
-        <div>
+    <div className="h-screen w-screen bg-gray-900 text-white flex flex-col md:flex-row relative overflow-hidden">
+      {/* 展开/收起按钮，固定在右上角，z-50，移动端更明显 */}
+      <button
+        className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg transition-all md:top-6 md:right-6 md:px-5 md:py-2.5 text-sm md:text-base"
+        onClick={() => setShowEditor(v => !v)}
+        aria-label={showEditor ? '收起代码区' : '展开代码区'}
+      >
+        {showEditor ? '收起代码区' : '展开代码区'}
+      </button>
+      {/* 左侧：问题区（可滚动，按钮粘性，内容不超宽） */}
+      <div
+        className={`transition-all duration-300 bg-gray-800 border-r border-gray-700 flex flex-col ${showEditor ? 'w-full md:w-1/5' : 'w-1/2'} min-w-[120px] max-h-screen`}
+        style={{ overflow: 'hidden' }}
+      >
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="text-purple-400 font-bold text-lg mb-2">当前问题</div>
-          <div className="text-base mb-4">{currentQuestion.title}</div>
+          <div
+            className="text-base mb-4 break-words whitespace-pre-line max-w-full"
+            style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
+          >
+            {currentQuestion.title}
+          </div>
           <div className="text-gray-400 text-sm font-semibold mb-1">提示</div>
-          <div className="text-gray-300 text-sm">{currentQuestion.hint}</div>
+          <div
+            className="text-gray-300 text-sm break-words whitespace-pre-line max-w-full"
+            style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
+          >
+            {currentQuestion.hint}
+          </div>
         </div>
-        <button
-          className="mt-8 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm"
-          onClick={() => setHistoryVisible(true)}
-        >
-          查看历史记录
-        </button>
+        <div className="sticky bottom-0 left-0 right-0 bg-gray-800 p-4 flex flex-col gap-2 z-10 border-t border-gray-700">
+          <button
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm w-full"
+            onClick={() => setHistoryVisible(true)}
+          >
+            查看历史记录
+          </button>
+          {/* <button
+            className={`bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm w-full flex items-center justify-center ${isRunning ? 'opacity-60 cursor-not-allowed' : ''}`}
+            onClick={handleRunCode}
+            disabled={isRunning}
+          >
+            {isRunning ? '运行中...' : '运行代码'}
+          </button> */}
+        </div>
       </div>
 
       {/* 中间：代码编辑区 */}
-      <div className="w-3/5 flex flex-col bg-gray-900 p-6">
-        <div className="flex items-center mb-2">
-          <span className="text-gray-400 text-sm mr-2">选择语言：</span>
-          <select
-            className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-sm outline-none"
-            value={language}
-            onChange={e => setLanguage(e.target.value)}
-          >
-            {languageOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex-1 min-h-0">
-          <MonacoEditor
-            height="calc(100vh - 120px)"
-            defaultLanguage={language}
-            language={language}
-            value={code}
-            theme="vs-dark"
-            onChange={v => setCode(v || '')}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 16,
-              fontFamily: 'Fira Mono, monospace',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              automaticLayout: true,
-            }}
-          />
-        </div>
+      <div
+        className={`transition-all duration-300 flex flex-col bg-gray-900 p-6 min-h-0 ${showEditor ? 'w-full md:w-3/5 opacity-100' : 'w-0 opacity-0 pointer-events-none select-none p-0'} overflow-hidden`}
+        style={{ minWidth: showEditor ? 200 : 0, maxWidth: showEditor ? undefined : 0 }}
+      >
+        {showEditor && (
+          <>
+            <div className="flex items-center mb-2 justify-between">
+              <div className="flex items-center">
+                <span className="text-gray-400 text-sm mr-2">选择语言：</span>
+                <select
+                  className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-sm outline-none"
+                  value={language}
+                  onChange={e => setLanguage(e.target.value)}
+                >
+                  {languageOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium ml-2 transition-all"
+                onClick={handleRunCode}
+                disabled={isRunning}
+                style={{ minWidth: 80 }}
+              >
+                {isRunning ? '运行中...' : '运行'}
+                {/* 运行符号：使用经典的“播放”三角形图标 */}
+                <svg className="ml-1 w-3 h-3" viewBox="0 0 12 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <polygon points="3,2 10,6 3,10" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 mb-2">
+              <MonacoEditor
+                height="calc(100vh - 220px)"
+                defaultLanguage={language}
+                language={language}
+                value={code}
+                theme="vs-dark"
+                onChange={v => setCode(v || '')}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 16,
+                  fontFamily: 'Fira Mono, monospace',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                }}
+              />
+            </div>
+            {/* 输入框和运行结果 */}
+            <div className="mb-2">
+              <label className="block text-gray-400 text-xs mb-1">标准输入（stdin，可选）</label>
+              <textarea
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-white resize-y min-h-[40px]"
+                value={stdin}
+                onChange={e => setStdin(e.target.value)}
+                placeholder="请输入标准输入内容..."
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block text-gray-400 text-xs mb-1">运行结果</label>
+              <pre
+                className="w-full bg-black border border-gray-700 rounded px-2 py-2 text-xs min-h-[40px] max-h-40 overflow-auto whitespace-pre-wrap"
+                style={{ color: undefined }}
+                dangerouslySetInnerHTML={{
+                  __html: runResult
+                    ? runResult
+                        .replace(/<stderr>([\s\S]*?)<\/stderr>/g, '<span style="color:#f87171;">$1</span>')
+                        .replace(/<stdout>([\s\S]*?)<\/stdout>/g, '<span style="color:#4ade80;">$1</span>')
+                    : '',
+                }}
+              />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* 右侧：视频区 */}
-      <div className="w-1/5 bg-gray-800 p-6 flex flex-col justify-between items-center">
-        <div className="w-full">
+      {/* 右侧：视频区（竖直排列，收起IDE时也能完整显示） */}
+      <div
+        className={`transition-all duration-300 bg-gray-800 p-6 flex flex-col gap-8 items-center w-full ${showEditor ? 'md:w-1/5' : ''} min-w-[120px]`}
+        style={{ minHeight: '0', justifyContent: 'center' }}
+      >
+        {/* 面试官视频块 */}
+        <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
           <div className="text-center text-xs text-gray-400 mb-2">数字人面试官</div>
-          {/* 预留：面试官视频流 */}
-          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-6">🤖</div>
+          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-6 min-w-[120px] min-h-[120px] max-w-[400px] max-h-[40vh]"></div>
         </div>
-        <div className="w-full">
+        {/* 面试者视频块 */}
+        <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
           <div className="text-center text-xs text-gray-400 mb-2">面试者</div>
-          {/* 面试者视频流 */}
-          <div className="bg-black w-full aspect-square rounded-md flex flex-col items-center justify-center text-3xl relative">
+          <div className="bg-black w-full aspect-square rounded-md flex flex-col items-center justify-center text-3xl relative min-w-[120px] min-h-[120px] max-w-[400px] max-h-[40vh]">
             <video
               ref={videoRef}
               autoPlay
@@ -297,9 +419,9 @@ export default function InterviewPage() {
               className="absolute inset-0 w-full h-full object-cover rounded-md"
               style={{ background: 'black' }}
             />
-            {!isRecording && <span className="z-10">🧑‍💻</span>}
+            {!isRecording && <span className="z-10"></span>}
           </div>
-          <div className="mt-2 flex space-x-2 justify-center">
+          {/* <div className="mt-2 flex space-x-2 justify-center">
             <button
               className={`px-3 py-1 rounded text-sm font-medium ${isRecording ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
               onClick={startCollect}
@@ -314,11 +436,10 @@ export default function InterviewPage() {
             >
               停止采集
             </button>
-          </div>
+          </div> */}
           <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{transcript}</div>
         </div>
       </div>
-
       {/* 历史记录弹窗（Tailwind + Headless UI） */}
       <Transition appear show={historyVisible} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setHistoryVisible(false)}>
