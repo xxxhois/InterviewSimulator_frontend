@@ -1,5 +1,6 @@
 'use client';
 
+import { DigitalHumanAudio, DigitalHumanRequest, digitalHumanService } from '@/api/digitalHuman';
 import { runCode } from '@/api/test';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
@@ -63,6 +64,12 @@ export default function InterviewPage() {
   const currentQAIndexRef = useRef(-1);
   useEffect(() => { currentQAIndexRef.current = currentQAIndex; }, [currentQAIndex]);
   const lastTextRef = useRef('');
+
+  // 数字人相关状态
+  const [isDigitalHumanConnected, setIsDigitalHumanConnected] = useState(false);
+  const [isDigitalHumanSpeaking, setIsDigitalHumanSpeaking] = useState(false);
+  const [digitalHumanText, setDigitalHumanText] = useState('');
+  const digitalHumanAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // 视频/音频/WebSocket相关ref，添加类型
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -225,11 +232,174 @@ export default function InterviewPage() {
     setHistoryList([]);
   }
 
+  // 数字人相关功能
+  const initializeDigitalHuman = async () => {
+    try {
+      await digitalHumanService.initialize(
+        // 音频接收回调
+        (audio: DigitalHumanAudio) => {
+          console.log('收到数字人音频数据');
+          playDigitalHumanAudio(audio);
+        },
+        // 错误回调
+        (error: string) => {
+          console.error('数字人服务错误:', error);
+          setIsDigitalHumanConnected(false);
+        },
+        // 连接关闭回调
+        () => {
+          console.log('数字人连接已关闭');
+          setIsDigitalHumanConnected(false);
+        }
+      );
+      setIsDigitalHumanConnected(true);
+      console.log('数字人服务初始化成功');
+    } catch (error) {
+      console.error('数字人服务初始化失败:', error);
+      setIsDigitalHumanConnected(false);
+    }
+  };
+
+  // 修复playAudio方法，正确处理MP3格式
+  async function playAudio(audio: DigitalHumanAudio): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log(`开始播放音频，格式: ${audio.format}, 大小: ${audio.audioData.byteLength} 字节`);
+        
+        // 创建AudioContext
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        
+        if (audio.format === 'mp3') {
+          // 对于MP3格式，使用decodeAudioData
+          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            // 监听播放结束事件
+            source.onended = () => {
+              console.log('数字人音频播放完成');
+              resolve();
+            };
+            
+            source.start(0);
+            console.log('MP3音频开始播放');
+          }).catch(error => {
+            console.error('MP3解码失败:', error);
+            reject(error);
+          });
+        } else if (audio.format === 'raw') {
+          // 对于raw格式，需要特殊处理
+          const audioData = new Int16Array(audio.audioData);
+          const floatData = new Float32Array(audioData.length);
+          
+          // 转换为-1到1的浮点数
+          for (let i = 0; i < audioData.length; i++) {
+            floatData[i] = audioData[i] / 32768.0;
+          }
+          
+          // 创建AudioBuffer
+          const audioBuffer = audioContext.createBuffer(audio.channels, floatData.length, audio.sampleRate);
+          audioBuffer.copyToChannel(floatData, 0);
+          
+          // 创建音频源
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          
+          // 监听播放结束事件
+          source.onended = () => {
+            console.log('数字人音频播放完成');
+            resolve();
+          };
+          
+          source.start(0);
+          console.log('Raw音频开始播放');
+        } else {
+          // 对于其他格式，尝试默认解码
+          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            source.onended = () => {
+              console.log('数字人音频播放完成');
+              resolve();
+            };
+            
+            source.start(0);
+            console.log('默认格式音频开始播放');
+          }).catch(reject);
+        }
+      } catch (error) {
+        console.error('播放音频失败:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // 在playDigitalHumanAudio中添加更多调试信息
+  const playDigitalHumanAudio = async (audio: DigitalHumanAudio) => {
+    try {
+      console.log('=== 开始播放数字人音频 ===');
+      console.log('音频格式:', audio.format);
+      console.log('音频大小:', audio.audioData.byteLength, '字节');
+      console.log('采样率:', audio.sampleRate);
+      console.log('声道数:', audio.channels);
+      
+      setIsDigitalHumanSpeaking(true);
+      
+      await playAudio(audio);
+      
+      console.log('=== 数字人音频播放完成 ===');
+      setIsDigitalHumanSpeaking(false);
+    } catch (error) {
+      console.error('播放数字人音频失败:', error);
+      setIsDigitalHumanSpeaking(false);
+    }
+  };
+
+  // 发送文本给数字人
+  const sendTextToDigitalHuman = async (text: string) => {
+    if (!isDigitalHumanConnected) {
+      console.warn('数字人服务未连接');
+      return;
+    }
+
+    try {
+      const request: DigitalHumanRequest = {
+        text,
+        voiceConfig: {
+          vcn: "x5_lingxiaoyue_flow", // 女性发音人
+          speed: 50,
+          volume: 50,
+          pitch: 50
+        },
+        audioConfig: {
+          encoding: "lame",
+          sample_rate: 16000,
+          channels: 1,
+          bit_depth: 16
+        }
+      };
+
+      await digitalHumanService.textToSpeech(request);
+      setDigitalHumanText(text);
+    } catch (error) {
+      console.error('发送文本给数字人失败:', error);
+    }
+  };
+
   useEffect(() => {
     // 页面初始化时获取历史记录
     getHistoryList();
+    // 初始化数字人服务
+    initializeDigitalHuman();
+    
     return () => {
       stopCollect();
+      // 关闭数字人服务
+      digitalHumanService.disconnect();
     };
     // eslint-disable-next-line
   }, []);
@@ -424,8 +594,81 @@ export default function InterviewPage() {
       >
         {/* 面试官视频块 */}
         <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
-          <div className="text-center text-xs text-gray-400 mb-2">数字人面试官</div>
-          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-6 min-w-[120px] min-h-[120px] max-w-[400px] max-h-[40vh]"></div>
+          <div className="text-center text-xs text-gray-400 mb-2">
+            数字人面试官
+            <span className={`ml-2 px-2 py-1 rounded text-xs ${isDigitalHumanConnected ? 'bg-green-600' : 'bg-red-600'}`}>
+              {isDigitalHumanConnected ? '已连接' : '未连接'}
+            </span>
+          </div>
+          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-4 min-w-[120px] min-h-[120px] max-w-[400px] max-h-[40vh] relative">
+            {/* 数字人形象渲染区域 */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {isDigitalHumanSpeaking ? (
+                <div className="text-blue-400 animate-pulse flex flex-col items-center">
+                  <div className="text-2xl mb-2">🎤</div>
+                  <div className="text-sm">正在说话...</div>
+                  <div className="text-xs text-blue-300 mt-1">状态: {isDigitalHumanSpeaking ? 'true' : 'false'}</div>
+                </div>
+              ) : (
+                <div className="text-gray-500 flex flex-col items-center">
+                  <div className="text-4xl mb-2">🤖</div>
+                  <div className="text-sm">数字人形象</div>
+                  <div className="text-xs text-gray-400 mt-1">状态: {isDigitalHumanSpeaking ? 'true' : 'false'}</div>
+                </div>
+              )}
+            </div>
+            
+            {/* 添加音频可视化效果 */}
+            {isDigitalHumanSpeaking && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1">
+                {[...Array(5)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1 bg-blue-400 rounded-full animate-pulse"
+                    style={{
+                      height: `${Math.random() * 20 + 10}px`,
+                      animationDelay: `${i * 0.1}s`
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* 数字人控制区域 */}
+          <div className="w-full space-y-2 mb-4">
+            <div className="text-xs text-gray-400 mb-1">数字人文本</div>
+            <textarea
+              className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white resize-none h-16"
+              value={digitalHumanText}
+              onChange={(e) => setDigitalHumanText(e.target.value)}
+              placeholder="输入要转换为语音的文本..."
+            />
+            <div className="flex space-x-2">
+              <button
+                className={`px-3 py-1 rounded text-xs font-medium ${
+                  isDigitalHumanConnected 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => sendTextToDigitalHuman(digitalHumanText)}
+                disabled={!isDigitalHumanConnected || !digitalHumanText.trim()}
+              >
+                播放语音
+              </button>
+              <button
+                className={`px-3 py-1 rounded text-xs font-medium ${
+                  isDigitalHumanConnected 
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => sendTextToDigitalHuman('你好，我是数字人面试官，很高兴见到你！')}
+                disabled={!isDigitalHumanConnected}
+              >
+                测试语音
+              </button>
+            </div>
+          </div>
         </div>
         {/* 面试者视频块 */}
         <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
