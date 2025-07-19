@@ -1,619 +1,620 @@
-
 // 数字人API配置
 const DIGITAL_HUMAN_CONFIG = {
-  appId: "5945676c",
-  apiKey: "203214509c072eca540be4c80bf533fa",
-  apiSecret: "NjRjYmJhOTcxYzE0NzJhZTJhMDc4Y2E0",
-  baseUrl: "wss://sparkos.xfyun.cn/v1/openapi/chat",
-  scene: "sos_app"
-};
-
-// 数字人响应类型定义
-export interface DigitalHumanResponse {
-  header: {
-    code: number;
-    message: string;
-    sid: string;
-    status: number;
+    appId: "5945676c",
+    apiKey: "203214509c072eca540be4c80bf533fa",
+    apiSecret: "NjRjYmJhOTcxYzE0NzJhZTJhMDc4Y2E0",
+    baseUrl: "wss://avatar.cn-huadong-1.xf-yun.com/v1/interact",
+    anchorId: "110332017",
+    vcn: "x4_lingxiaoqi_oral"
   };
-  payload?: {
-    tts?: {
-      audio: string;
-      status: number;
-      encoding: string;
-      sample_rate: number;
-      channels: number;
-      bit_depth: number;
-      frame_size: number;
-    };
-    nlp?: {
-      text: string;
-      encoding: string;
-      compress: string;
-      format: string;
-    };
-    event?: {
-      text: string;
-      encoding: string;
-      compress: string;
-      format: string;
-    };
-  };
-}
-
-// 数字人请求参数
-export interface DigitalHumanRequest {
-  text: string;
-  voiceConfig?: {
-    vcn?: string; // 发音人
-    speed?: number; // 语速 0-100
-    volume?: number; // 音量 0-100
-    pitch?: number; // 音调 0-100
-  };
-  audioConfig?: {
-    encoding?: string; // 音频编码格式
-    sample_rate?: number; // 采样率
-    channels?: number; // 声道数
-    bit_depth?: number; // 位深
-  };
-}
-
-// 数字人音频数据
-export interface DigitalHumanAudio {
-  audioData: ArrayBuffer;
-  format: string;
-  sampleRate: number;
-  channels: number;
-}
-
-// HMAC-SHA256签名计算
-async function hmacSha256(key: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(key);
-  const messageData = encoder.encode(message);
   
-  // 导入密钥
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  
-  // 计算签名
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-  
-  // 转换为base64
-  return btoa(String.fromCharCode(...new Uint8Array(signature)));
-}
-
-// 鉴权URL构建
-async function assembleAuthUrl(requestUrl: string, method: string = "GET"): Promise<string> {
-  const url = new URL(requestUrl);
-  const host = url.host;
-  const path = url.pathname;
-  
-  // 生成RFC1123格式的时间戳
-  const now = new Date();
-  const date = now.toUTCString();
-  
-  // 构建签名原始字符串
-  const signatureOrigin = `host: ${host}\ndate: ${date}\n${method} ${path} HTTP/1.1`;
-  
-  // 使用HMAC-SHA256计算签名
-  const signatureSha = await hmacSha256(DIGITAL_HUMAN_CONFIG.apiSecret, signatureOrigin);
-  
-  const authorizationOrigin = `api_key="${DIGITAL_HUMAN_CONFIG.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signatureSha}"`;
-  const authorization = btoa(authorizationOrigin);
-  
-  // 构建查询参数
-  const params = new URLSearchParams({
-    host,
-    date,
-    authorization
-  });
-  
-  return `${requestUrl}?${params.toString()}`;
-}
-
-// WebSocket连接管理类
-export class DigitalHumanWebSocket {
-  private ws: WebSocket | null = null;
-  private isConnected: boolean = false;
-  private audioChunks: Uint8Array[] = [];
-  private onAudioReceived?: (audio: DigitalHumanAudio) => void;
-  private onError?: (error: string) => void;
-  private onClose?: () => void;
-  private audioTimeout: NodeJS.Timeout | null = null;
-
-  constructor(
-    onAudioReceived?: (audio: DigitalHumanAudio) => void,
-    onError?: (error: string) => void,
-    onClose?: () => void
-  ) {
-    this.onAudioReceived = onAudioReceived;
-    this.onError = onError;
-    this.onClose = onClose;
+  // 自定义异常类
+  class BreakException extends Error {
+    constructor(message: string = "Break exception") {
+      super(message);
+      this.name = "BreakException";
+    }
   }
-
-  // 连接WebSocket
-  async connect(): Promise<void> {
-    return new Promise(async (resolve, reject) => {
+  
+  // 数字人响应类型定义
+  export interface DigitalHumanResponse {
+    header: {
+      code: number;
+      message: string;
+      request_id?: string;
+      ctrl?: string;
+    };
+    payload?: {
+      avatar?: {
+        error_code?: number;
+        event_type?: string;
+        stream_url?: string;
+        video?: string;
+        encoding?: string;
+        width?: number;
+        height?: number;
+      };
+      tts?: {
+        audio?: string;
+        status?: number;
+        encoding?: string;
+      };
+    };
+  }
+  
+  // 数字人请求参数
+  export interface DigitalHumanRequest {
+    text: string;
+    voiceConfig?: {
+      vcn?: string;
+    };
+  }
+  
+  // 数字人音频数据
+  export interface DigitalHumanAudio {
+    audioData: ArrayBuffer;
+    format: string;
+    sampleRate: number;
+    channels: number;
+  }
+  
+  // 数字人视频数据
+  export interface DigitalHumanVideo {
+    videoUrl: string;
+    width: number;
+    height: number;
+  }
+  
+  // HMAC-SHA256签名计算
+  async function hmacSha256(key: string, message: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(key);
+    const messageData = encoder.encode(message);
+    
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+    return btoa(String.fromCharCode(...new Uint8Array(signature)));
+  }
+  
+  // 鉴权URL构建
+  async function assembleAuthUrl(requestUrl: string, method: string = "GET"): Promise<string> {
+    const url = new URL(requestUrl);
+    const host = url.host;
+    const path = url.pathname;
+    
+    const now = new Date();
+    const date = now.toUTCString();
+    
+    const signatureOrigin = `host: ${host}\ndate: ${date}\n${method} ${path} HTTP/1.1`;
+    const signatureSha = await hmacSha256(DIGITAL_HUMAN_CONFIG.apiSecret, signatureOrigin);
+    
+    const authorizationOrigin = `api_key="${DIGITAL_HUMAN_CONFIG.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signatureSha}"`;
+    const authorization = btoa(authorizationOrigin);
+    
+    const params = new URLSearchParams({
+      host,
+      date,
+      authorization
+    });
+    
+    return `${requestUrl}?${params.toString()}`;
+  }
+  
+  // 消息队列类
+  class MessageQueue {
+    private queue: string[] = [];
+    private maxSize: number;
+  
+    constructor(maxSize: number = 100) {
+      this.maxSize = maxSize;
+    }
+  
+    put(message: string): boolean {
+      if (this.queue.length >= this.maxSize) {
+        return false;
+      }
+      this.queue.push(message);
+      return true;
+    }
+  
+    get(): string | null {
+      return this.queue.shift() || null;
+    }
+  
+    isEmpty(): boolean {
+      return this.queue.length === 0;
+    }
+  
+    size(): number {
+      return this.queue.length;
+    }
+  }
+  
+  // 数字人WebSocket类
+  export class AvatarWebSocket {
+    private ws: WebSocket | null = null;
+    private appId: string = DIGITAL_HUMAN_CONFIG.appId;
+    private vcn: string = DIGITAL_HUMAN_CONFIG.vcn;
+    private anchorId: string = DIGITAL_HUMAN_CONFIG.anchorId;
+    private dataList: MessageQueue;
+    private status: boolean = true;
+    private linkConnected: boolean = false;
+    private avatarLinked: boolean = false;
+    private terminated: boolean = false;
+    private sendMessageInterval: NodeJS.Timeout | null = null;
+    private pingInterval: NodeJS.Timeout | null = null;
+  
+    // 回调函数
+    private onAudioReceived?: (audio: DigitalHumanAudio) => void;
+    private onVideoReceived?: (video: DigitalHumanVideo) => void;
+    private onError?: (error: string) => void;
+    private onClose?: () => void;
+    private onAvatarConnected?: (streamUrl: string, fullMessage?: any) => void;
+  
+    constructor(
+      onAudioReceived?: (audio: DigitalHumanAudio) => void,
+      onVideoReceived?: (video: DigitalHumanVideo) => void,
+      onError?: (error: string) => void,
+      onClose?: () => void,
+      onAvatarConnected?: (streamUrl: string, fullMessage?: any) => void
+    ) {
+      this.dataList = new MessageQueue(100);
+      this.onAudioReceived = onAudioReceived;
+      this.onVideoReceived = onVideoReceived;
+      this.onError = onError;
+      this.onClose = onClose;
+      this.onAvatarConnected = onAvatarConnected;
+    }
+  
+    // 启动WebSocket连接
+    async start(): Promise<void> {
       try {
         const authUrl = await assembleAuthUrl(DIGITAL_HUMAN_CONFIG.baseUrl);
+        console.log('连接数字人WebSocket:', authUrl);
+        
         this.ws = new WebSocket(authUrl);
         
         this.ws.onopen = () => {
           console.log('数字人WebSocket连接已建立');
-          this.isConnected = true;
-          resolve();
+          this.onOpen();
         };
         
         this.ws.onmessage = (event) => {
-          this.handleMessage(event.data);
+          this.onMessage(event.data);
         };
         
         this.ws.onerror = (error) => {
           console.error('数字人WebSocket错误:', error);
-          this.isConnected = false;
-          this.onError?.('WebSocket连接错误');
-          reject(error);
+          this.onError?.(`WebSocket错误: ${error}`);
         };
         
-        this.ws.onclose = () => {
-          console.log('数字人WebSocket连接已关闭');
-          this.isConnected = false;
+        this.ws.onclose = (event) => {
+          console.log('数字人WebSocket连接已关闭', event.code, event.reason);
           this.onClose?.();
         };
       } catch (error) {
-        reject(error);
+        console.error('启动WebSocket失败:', error);
+        this.onError?.(`启动失败: ${error}`);
       }
-    });
-  }
-
-  // 处理接收到的消息
-  // 修改handleMessage方法来正确处理Blob和文本数据
-private async handleMessage(data: any) {
-  try {
-    let jsonData: string;
-    
-    // 检查数据类型
-    if (data instanceof Blob) {
-      // 如果是Blob，转换为文本
-      jsonData = await data.text();
-      console.log('收到Blob数据，转换为文本:', jsonData);
-    } else if (typeof data === 'string') {
-      // 如果是字符串，直接使用
-      jsonData = data;
-      console.log('收到文本数据:', jsonData);
-    } else {
-      console.error('未知数据类型:', typeof data, data);
-      return;
     }
-    
-    const response: DigitalHumanResponse = JSON.parse(jsonData);
-    
-    // 检查响应状态码
-    if (response.header.code === 0) {
-      // 成功响应
-      console.log('数字人API成功响应:', response.header.message);
+  
+    // 停止WebSocket连接
+    stop(): void {
+      console.log('停止数字人WebSocket连接');
+      this.status = false;
+      this.terminated = true;
       
-      // 如果有payload，处理具体数据
-      if (response.payload) {
-        // 处理TTS音频数据
-        if (response.payload.tts) {
-            console.log('=== TTS响应详情 ===');
-            console.log('状态:', response.payload.tts.status);
-            console.log('音频长度:', response.payload.tts.audio?.length || 0);
-            console.log('编码格式:', response.payload.tts.encoding);
-            
-            const tts = response.payload.tts;
-            if (tts.audio && tts.audio.length > 0) {
-              // 解码base64音频数据
-              const audioBytes = this.base64ToUint8Array(tts.audio);
-              console.log('解码后音频大小:', audioBytes.length, '字节');
-              
-              this.audioChunks.push(audioBytes);
-              console.log('当前音频块数量:', this.audioChunks.length);
-              
-              // 清除之前的超时
-              if (this.audioTimeout) {
-                clearTimeout(this.audioTimeout);
-              }
-              
-              // 检查是否为最后一帧
-              if (tts.status === 2) {
-                console.log('收到最后一帧，开始合并音频');
-                this.combineAudioChunks();
+      if (this.sendMessageInterval) {
+        clearInterval(this.sendMessageInterval);
+        this.sendMessageInterval = null;
+      }
+      
+      if (this.pingInterval) {
+        clearInterval(this.pingInterval);
+        this.pingInterval = null;
+      }
+      
+      if (this.ws) {
+        this.ws.close();
+        this.ws = null;
+      }
+    }
+  
+    // WebSocket连接打开回调
+    private onOpen(): void {
+      console.log('WebSocket连接已打开');
+      this.linkConnected = true;
+      this.connectAvatar();
+      this.startSendMessage();
+    }
+  
+    // 处理接收到的消息
+    private async onMessage(data: any): Promise<void> {
+      try {
+        let message: string;
+        
+        if (data instanceof Blob) {
+          message = await data.text();
+        } else {
+          message = data;
+        }
+        
+        console.log('收到消息:', message);
+        this.receivedMessage(message);
+      } catch (error) {
+        console.error('处理消息失败:', error);
+      }
+    }
+  
+    // 发送消息
+    private send(message: string): void {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        console.log('发送消息:', message);
+        this.ws.send(message);
+      } else {
+        console.warn('WebSocket未连接，无法发送消息');
+      }
+    }
+  
+    // 开始发送消息循环
+    private startSendMessage(): void {
+      this.sendMessageInterval = setInterval(() => {
+        if (this.status && !this.terminated && this.linkConnected) {
+          try {
+            if (this.avatarLinked) {
+              const task = this.dataList.get();
+              if (task) {
+                const timestamp = new Date().toLocaleString();
+                console.log(`${timestamp} 发送消息: ${task}`);
+                this.send(task);
               } else {
-                console.log('还有更多音频帧，继续等待...');
-                // 设置超时，如果3秒内没有收到下一帧，就处理当前音频
-                this.audioTimeout = setTimeout(() => {
-                  console.log('音频接收超时，处理当前音频块');
-                  this.combineAudioChunks();
-                }, 3000);
+                // 发送ping消息
+                this.send(this.getPingMsg());
               }
             }
-          }
-        
-        // 处理NLP文本数据
-        if (response.payload.nlp) {
-          console.log('NLP响应:', response.payload.nlp.text);
-        }
-        
-        // 处理事件数据
-        if (response.payload.event) {
-          console.log('事件响应:', response.payload.event.text);
-        }
-      }
-    } else {
-      // 错误响应
-      console.error('数字人API错误:', response.header);
-      this.onError?.(response.header.message);
-    }
-  } catch (error) {
-    console.error('解析数字人响应失败:', error);
-    console.error('原始数据:', data);
-    this.onError?.('解析响应失败');
-  }
-}
-
-  // 发送文本转语音请求
-  sendTextToSpeech(request: DigitalHumanRequest): void {
-    if (!this.isConnected || !this.ws) {
-      throw new Error('WebSocket未连接');
-    }
-
-    const data = {
-      header: {
-        app_id: DIGITAL_HUMAN_CONFIG.appId,
-        uid: "user_" + Date.now(),
-        status: 0,
-        stmid: "1",
-        scene: DIGITAL_HUMAN_CONFIG.scene
-        // 移除额外的属性：msc_lat, msc_lng, interact_mode
-      },
-      parameter: {
-        iat: {
-          iat: {
-            encoding: "utf8",
-            compress: "raw",
-            format: "json"
-          }
-        },
-        nlp: {
-          nlp: {
-            encoding: "utf8",
-            compress: "raw",
-            format: "json"
-          },
-          new_session: "global"
-        },
-        tts: {
-          vcn: request.voiceConfig?.vcn || "x5_lingxiaoyue_flow",
-          speed: request.voiceConfig?.speed || 50,
-          volume: request.voiceConfig?.volume || 50,
-          pitch: request.voiceConfig?.pitch || 50,
-          tts: {
-            encoding: request.audioConfig?.encoding || "lame",
-            sample_rate: request.audioConfig?.sample_rate || 16000,
-            channels: request.audioConfig?.channels || 1,
-            bit_depth: request.audioConfig?.bit_depth || 16,
-            frame_size: 0
+          } catch (error) {
+            console.error('发送消息失败:', error);
           }
         }
-      },
-      payload: {
-        text: {
-          status: 2,
-          text: btoa(unescape(encodeURIComponent(request.text))),
-          encoding: "utf8"
-        }
-      }
-    };
-
-    console.log('发送文本转语音请求:', data);
-    this.ws.send(JSON.stringify(data));
-  }
-
-  // 修改combineAudioChunks方法，正确检测音频格式
-private combineAudioChunks(): void {
-    if (this.audioChunks.length === 0) return;
-    
-    console.log('开始合并音频块，数量:', this.audioChunks.length);
-    
-    // 计算总长度
-    const totalLength = this.audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    console.log('总音频大小:', totalLength, '字节');
-    
-    // 合并所有音频块
-    const combinedAudio = new Uint8Array(totalLength);
-    let offset = 0;
-    
-    for (const chunk of this.audioChunks) {
-      combinedAudio.set(chunk, offset);
-      offset += chunk.length;
+      }, 5000); // 每5秒检查一次
     }
-    
-    // 检测音频格式
-    let format = 'raw';
-    if (combinedAudio.length >= 4) {
-      const header = new Uint8Array(combinedAudio.slice(0, 4));
-      const headerStr = String.fromCharCode(...header);
-      
-      // 检测MP3格式
-      if (headerStr.startsWith('ID3') || 
-          (header[0] === 0xFF && (header[1] & 0xE0) === 0xE0)) {
-        format = 'mp3';
-        console.log('检测到MP3格式');
-      }
-      // 检测WAV格式
-      else if (headerStr === 'RIFF') {
-        format = 'wav';
-        console.log('检测到WAV格式');
-      }
-      else {
-        console.log('未检测到已知格式，使用raw格式');
-      }
-    }
-    
-    // 创建音频对象
-    const audio: DigitalHumanAudio = {
-      audioData: combinedAudio.buffer,
-      format: format,
-      sampleRate: 16000,
-      channels: 1
-    };
-    
-    console.log('音频对象创建完成，格式:', format, '大小:', combinedAudio.length);
-    
-    // 回调音频数据
-    this.onAudioReceived?.(audio);
-    
-    // 清空音频块
-    this.audioChunks = [];
-    console.log('音频块已清空');
-  }
-
-  // Base64转Uint8Array
-  private base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  // 关闭连接
-  disconnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    this.isConnected = false;
-  }
-
-  // 检查连接状态
-  getConnectionStatus(): boolean {
-    return this.isConnected;
-  }
-}
-
-// 数字人服务类
-export class DigitalHumanService {
-  private wsClient: DigitalHumanWebSocket | null = null;
-
-  // 初始化数字人服务
-  async initialize(
-    onAudioReceived?: (audio: DigitalHumanAudio) => void,
-    onError?: (error: string) => void,
-    onClose?: () => void
-  ): Promise<void> {
-    this.wsClient = new DigitalHumanWebSocket(onAudioReceived, onError, onClose);
-    await this.wsClient.connect();
-  }
-
-  // 文本转语音
-  async textToSpeech(request: DigitalHumanRequest): Promise<void> {
-    if (!this.wsClient) {
-      throw new Error('数字人服务未初始化');
-    }
-    
-    this.wsClient.sendTextToSpeech(request);
-  }
-
-  //播放音频
-  // 修复playAudio方法，正确处理不同格式
-async playAudio(audio: DigitalHumanAudio): Promise<void> {
-    return new Promise((resolve, reject) => {
+  
+    // 发送驱动文本
+    sendDriverText(driverText: string): void {
       try {
-        console.log(`=== 开始播放音频 ===`);
-        console.log(`格式: ${audio.format}`);
-        console.log(`大小: ${audio.audioData.byteLength} 字节`);
-        console.log(`采样率: ${audio.sampleRate}`);
-        console.log(`声道数: ${audio.channels}`);
-        
-        // 创建AudioContext
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        
-        if (audio.format === 'mp3') {
-          console.log('使用MP3解码播放');
-          // 对于MP3格式，使用decodeAudioData
-          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-            
-            // 监听播放结束事件
-            source.onended = () => {
-              console.log('MP3音频播放完成');
-              resolve();
-            };
-            
-            source.start(0);
-            console.log('MP3音频开始播放');
-          }).catch(error => {
-            console.error('MP3解码失败:', error);
-            reject(error);
-          });
-        } else if (audio.format === 'raw') {
-          console.log('使用Raw格式播放');
-          // 对于raw格式，需要特殊处理
-          const audioData = new Int16Array(audio.audioData);
-          const floatData = new Float32Array(audioData.length);
-          
-          // 转换为-1到1的浮点数
-          for (let i = 0; i < audioData.length; i++) {
-            floatData[i] = audioData[i] / 32768.0;
+        const textMsg = {
+          header: {
+            app_id: this.appId,
+            request_id: this.generateRequestId(),
+            ctrl: "text_driver"
+          },
+          parameter: {
+            tts: {
+              vcn: this.vcn
+            },
+            avatar_dispatch: {
+              interactive_mode: 0
+            }
+          },
+          payload: {
+            text: {
+              content: driverText
+            }
           }
+        };
+        
+        this.dataList.put(JSON.stringify(textMsg));
+        console.log('添加文本消息到队列:', driverText);
+      } catch (error) {
+        console.error('发送驱动文本失败:', error);
+      }
+    }
+  
+    // 连接数字人
+    private connectAvatar(): void {
+      try {
+        const startMsg = {
+          header: {
+            app_id: this.appId,
+            request_id: this.generateRequestId(),
+            ctrl: "start"
+          },
+          parameter: {
+            tts: {
+              vcn: this.vcn
+            },
+            avatar: {
+              stream: {
+                protocol: "xrtc"
+              },
+              avatar_id: this.anchorId
+            }
+          }
+        };
+        
+        const timestamp = new Date().toLocaleString();
+        console.log(`${timestamp} 发送启动请求: ${JSON.stringify(startMsg)}`);
+        this.send(JSON.stringify(startMsg));
+      } catch (error) {
+        console.error('连接数字人失败:', error);
+      }
+    }
+  
+    // 生成ping消息
+    private getPingMsg(): string {
+      const pingMsg = {
+        header: {
+          app_id: this.appId,
+          request_id: this.generateRequestId(),
+          ctrl: "ping"
+        }
+      };
+      return JSON.stringify(pingMsg);
+    }
+  
+    // 生成请求ID
+    private generateRequestId(): string {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+  
+    // 处理接收到的消息
+    private receivedMessage(message: string): void {
+      try {
+        const data: DigitalHumanResponse = JSON.parse(message);
+        
+        if (data.header.code !== 0) {
+          this.status = false;
+          console.error('收到错误消息:', message);
+          this.onError?.(`API错误: ${data.header.message}`);
+          return;
+        }
+  
+        // 处理数字人相关消息
+        if (data.payload?.avatar) {
+          const avatar = data.payload.avatar;
           
-          // 创建AudioBuffer
-          const audioBuffer = audioContext.createBuffer(audio.channels, floatData.length, audio.sampleRate);
-          audioBuffer.copyToChannel(floatData, 0);
+          // 处理错误
+          if (avatar.error_code !== undefined && avatar.error_code !== 0) {
+            console.error('数字人错误:', avatar);
+            this.onError?.(`数字人错误: ${avatar.error_code}`);
+            return;
+          }
+  
+          // 处理流信息
+          if (avatar.event_type === 'stream_info') {
+            this.avatarLinked = true;
+            console.log('数字人WebSocket连接成功:', message);
+            if (avatar.stream_url) {
+              console.log('流地址:', avatar.stream_url);
+              this.onAvatarConnected?.(avatar.stream_url, data);
+            }
+          }
+  
+          // 处理视频数据
+          if (avatar.event_type === 'video' && avatar.video) {
+            this.handleVideoData(avatar);
+          }
+  
+          // 处理停止事件
+          if (avatar.event_type === 'stop') {
+            console.log('数字人停止事件');
+            throw new BreakException('数字人停止');
+          }
+  
+          // 处理pong响应
+          if (avatar.event_type === 'pong') {
+            console.log('收到pong响应');
+          }
+        }
+  
+        // 处理TTS音频数据
+        if (data.payload?.tts) {
+          this.handleAudioData(data.payload.tts);
+        }
+  
+      } catch (error) {
+        if (error instanceof BreakException) {
+          console.log('收到停止信号但继续运行');
+        } else {
+          console.error('处理消息失败:', error);
+        }
+      }
+    }
+  
+    // 处理音频数据
+    private handleAudioData(tts: any): void {
+      if (tts.audio && tts.audio.length > 0) {
+        console.log('=== TTS音频数据 ===');
+        console.log('状态:', tts.status);
+        console.log('编码:', tts.encoding);
+        console.log('音频长度:', tts.audio.length);
+        
+        try {
+          const audioBytes = this.base64ToUint8Array(tts.audio);
+          console.log('解码后音频大小:', audioBytes.length, '字节');
           
-          // 创建音频源
-          const source = audioContext.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioContext.destination);
-          
-          // 监听播放结束事件
-          source.onended = () => {
-            console.log('Raw音频播放完成');
-            resolve();
+          const audio: DigitalHumanAudio = {
+            audioData: audioBytes.buffer as ArrayBuffer,
+            format: tts.encoding || 'raw',
+            sampleRate: 16000,
+            channels: 1
           };
           
-          source.start(0);
-          console.log('Raw音频开始播放');
-        } else {
-          console.log('使用默认解码播放');
-          // 对于其他格式，尝试默认解码
-          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
+          this.onAudioReceived?.(audio);
+        } catch (error) {
+          console.error('处理音频数据失败:', error);
+        }
+      }
+    }
+  
+    // 处理视频数据
+    private handleVideoData(avatar: any): void {
+      if (avatar.video && avatar.video.length > 0) {
+        console.log('=== 数字人视频数据 ===');
+        console.log('编码:', avatar.encoding);
+        console.log('尺寸:', avatar.width, 'x', avatar.height);
+        console.log('视频长度:', avatar.video.length);
+        
+        try {
+          const videoBytes = this.base64ToUint8Array(avatar.video);
+          const videoBlob = new Blob([videoBytes], { type: 'video/mp4' });
+          const videoUrl = URL.createObjectURL(videoBlob);
+          
+          const video: DigitalHumanVideo = {
+            videoUrl,
+            width: avatar.width || 512,
+            height: avatar.height || 512
+          };
+          
+          this.onVideoReceived?.(video);
+        } catch (error) {
+          console.error('处理视频数据失败:', error);
+        }
+      }
+    }
+  
+    // Base64转Uint8Array
+    private base64ToUint8Array(base64: string): Uint8Array {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    }
+  
+    // 获取连接状态
+    getConnectionStatus(): boolean {
+      return this.status && this.linkConnected && this.avatarLinked;
+    }
+  
+    // 获取数字人连接状态
+    getAvatarLinked(): boolean {
+      return this.avatarLinked;
+    }
+  }
+  
+  // 数字人服务类
+  export class DigitalHumanService {
+    private wsClient: AvatarWebSocket | null = null;
+  
+    async initialize(
+      onAudioReceived?: (audio: DigitalHumanAudio) => void,
+      onVideoReceived?: (video: DigitalHumanVideo) => void,
+      onError?: (error: string) => void,
+      onClose?: () => void,
+      onAvatarConnected?: (streamUrl: string, fullMessage?: any) => void
+    ): Promise<void> {
+      this.wsClient = new AvatarWebSocket(
+        onAudioReceived,
+        onVideoReceived,
+        onError,
+        onClose,
+        onAvatarConnected
+      );
+      
+      await this.wsClient.start();
+    }
+  
+    async textToSpeech(request: DigitalHumanRequest): Promise<void> {
+      if (!this.wsClient) {
+        throw new Error('数字人服务未初始化');
+      }
+      
+      if (!this.wsClient.getConnectionStatus()) {
+        throw new Error('数字人未连接');
+      }
+      
+      this.wsClient.sendDriverText(request.text);
+    }
+  
+    // 播放音频
+    async playAudio(audio: DigitalHumanAudio): Promise<void> {
+      return new Promise((resolve, reject) => {
+        try {
+          console.log(`=== 开始播放音频 ===`);
+          console.log(`格式: ${audio.format}`);
+          console.log(`大小: ${audio.audioData.byteLength} 字节`);
+          console.log(`采样率: ${audio.sampleRate}`);
+          console.log(`声道数: ${audio.channels}`);
+          
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          
+          if (audio.format === 'mp3' || audio.format === 'lame') {
+            console.log('使用MP3解码播放');
+            audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
+              const source = audioContext.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(audioContext.destination);
+              
+              source.onended = () => {
+                console.log('MP3音频播放完成');
+                resolve();
+              };
+              
+              source.start(0);
+              console.log('MP3音频开始播放');
+            }).catch(error => {
+              console.error('MP3解码失败:', error);
+              reject(error);
+            });
+          } else {
+            console.log('使用Raw格式播放');
+            const audioData = new Int16Array(audio.audioData);
+            const floatData = new Float32Array(audioData.length);
+            
+            for (let i = 0; i < audioData.length; i++) {
+              floatData[i] = audioData[i] / 32768.0;
+            }
+            
+            const audioBuffer = audioContext.createBuffer(audio.channels, floatData.length, audio.sampleRate);
+            audioBuffer.copyToChannel(floatData, 0);
+            
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioContext.destination);
             
             source.onended = () => {
-              console.log('默认格式音频播放完成');
+              console.log('Raw音频播放完成');
               resolve();
             };
             
             source.start(0);
-            console.log('默认格式音频开始播放');
-          }).catch(reject);
+            console.log('Raw音频开始播放');
+          }
+        } catch (error) {
+          console.error('播放音频失败:', error);
+          reject(error);
         }
-      } catch (error) {
-        console.error('播放音频失败:', error);
-        reject(error);
+      });
+    }
+  
+    disconnect(): void {
+      if (this.wsClient) {
+        this.wsClient.stop();
+        this.wsClient = null;
       }
-    });
-  }
-
-  // 关闭服务
-  disconnect(): void {
-    if (this.wsClient) {
-      this.wsClient.disconnect();
-      this.wsClient = null;
+    }
+  
+    getConnectionStatus(): boolean {
+      return this.wsClient?.getConnectionStatus() || false;
+    }
+  
+    getAvatarLinked(): boolean {
+      return this.wsClient?.getAvatarLinked() || false;
     }
   }
-
-  // 获取连接状态
-  getConnectionStatus(): boolean {
-    return this.wsClient?.getConnectionStatus() || false;
-  }
-}
-
-// 创建数字人服务实例
-export const digitalHumanService = new DigitalHumanService();
-
-// 导出便捷函数
-export const createDigitalHuman = () => new DigitalHumanService();
-
-/*
-使用示例：
-
-// 1. 基本使用
-import { digitalHumanService } from '@/api/digitalHuman';
-
-// 初始化数字人服务
-await digitalHumanService.initialize(
-  (audio) => {
-    // 处理接收到的音频数据
-    console.log('收到音频数据:', audio);
-  },
-  (error) => {
-    // 处理错误
-    console.error('数字人错误:', error);
-  },
-  () => {
-    // 连接关闭回调
-    console.log('数字人连接已关闭');
-  }
-);
-
-// 发送文本转语音请求
-await digitalHumanService.textToSpeech({
-  text: '你好，我是数字人面试官！',
-  voiceConfig: {
-    vcn: 'x5_lingxiaoyue_flow', // 女性发音人
-    speed: 50, // 语速
-    volume: 50, // 音量
-    pitch: 50 // 音调
-  }
-});
-
-// 2. 在React组件中使用
-const [isConnected, setIsConnected] = useState(false);
-const [isSpeaking, setIsSpeaking] = useState(false);
-
-useEffect(() => {
-  const initDigitalHuman = async () => {
-    try {
-      await digitalHumanService.initialize(
-        (audio) => {
-          setIsSpeaking(true);
-          digitalHumanService.playAudio(audio).finally(() => {
-            setIsSpeaking(false);
-          });
-        },
-        (error) => {
-          console.error('数字人错误:', error);
-          setIsConnected(false);
-        },
-        () => {
-          setIsConnected(false);
-        }
-      );
-      setIsConnected(true);
-    } catch (error) {
-      console.error('初始化失败:', error);
-    }
-  };
-
-  initDigitalHuman();
   
-  return () => {
-    digitalHumanService.disconnect();
-  };
-}, []);
-
-// 3. 发送文本
-const handleSendText = async (text: string) => {
-  if (!isConnected) return;
-  
-  try {
-    await digitalHumanService.textToSpeech({
-      text,
-      voiceConfig: {
-        vcn: 'x5_lingxiaoyue_flow',
-        speed: 50,
-        volume: 50,
-        pitch: 50
-      }
-    });
-  } catch (error) {
-    console.error('发送失败:', error);
-  }
-};
-*/
+  // 创建数字人服务实例
+  export const createDigitalHuman = () => new DigitalHumanService();

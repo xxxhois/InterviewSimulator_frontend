@@ -1,10 +1,21 @@
 'use client';
 
-import { DigitalHumanAudio, DigitalHumanRequest, digitalHumanService } from '@/api/digitalHuman';
+import { createDigitalHuman, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
 import { runCode } from '@/api/test';
+import { RTCPlayer } from '@/lib/rtcplayer';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
 import { Fragment, useEffect, useRef, useState } from 'react';
+
+// 数字人配置常量
+const DIGITAL_HUMAN_CONFIG = {
+  appId: "5945676c",
+  apiKey: "203214509c072eca540be4c80bf533fa",
+  apiSecret: "NjRjYmJhOTcxYzE0NzJhZTJhMDc4Y2E0",
+  baseUrl: "wss://avatar.cn-huadong-1.xf-yun.com/v1/interact",
+  anchorId: "110332017",
+  vcn: "x4_mingge"
+};
 
 // 动态引入 Monaco Editor，避免 SSR 问题
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
@@ -14,10 +25,6 @@ const mockQuestion = {
   title: '请实现一个斐波那契数列函数',
   hint: '递归或动态规划均可，注意边界条件。',
 };
-// const mockHistory = [
-//   { question: '什么是闭包？', answer: '闭包是函数和其引用的变量环境的组合。' },
-//   { question: '手写防抖函数', answer: 'function debounce(fn, delay) { /* ... */ }' },
-// ];
 
 const languageOptions = [
   { label: 'Plain Text', value: 'plaintext' },
@@ -25,7 +32,6 @@ const languageOptions = [
   { label: 'Python', value: 'python' },
   { label: 'TypeScript', value: 'typescript' },
   { label: 'Java', value: 'java' },
-  // 可扩展更多语言
 ];
 
 function downsampleBuffer(buffer: Float32Array, sampleRate: number, outRate: number): Float32Array {
@@ -54,31 +60,31 @@ export default function InterviewPage() {
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('plaintext');
   const [historyVisible, setHistoryVisible] = useState(false);
-  const [historyList, setHistoryList] = useState<{ question: string; answer: string }[]>([]); // 初始为空
+  const [historyList, setHistoryList] = useState<{ question: string; answer: string }[]>([]);
   const [transcript, setTranscript] = useState('');
-  const [question, setQuestion] = useState('');//面试官ws传输的当前语音
+  const [question, setQuestion] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  // 当前采集QA的索引，-1表示无
-  const [currentQAIndex, setCurrentQAIndex] = useState(-1);
-  // 用ref保存最新的QA索引，保证onmessage里能取到最新值
-  const currentQAIndexRef = useRef(-1);
-  useEffect(() => { currentQAIndexRef.current = currentQAIndex; }, [currentQAIndex]);
-  const lastTextRef = useRef('');
 
   // 数字人相关状态
   const [isDigitalHumanConnected, setIsDigitalHumanConnected] = useState(false);
   const [isDigitalHumanSpeaking, setIsDigitalHumanSpeaking] = useState(false);
   const [digitalHumanText, setDigitalHumanText] = useState('');
-  const digitalHumanAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [streamInfo, setStreamInfo] = useState<any>(null);
 
-  // 视频/音频/WebSocket相关ref，添加类型
+  // 视频/音频/WebSocket相关ref
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const digitalHumanContainerRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const sendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resampleBufferRef: React.MutableRefObject<number[]> = useRef([]);
+
+  // RTCPlayer实例
+  const rtcPlayerRef = useRef<InstanceType<typeof RTCPlayer> | null>(null);
+
+  // 数字人服务实例
+  const digitalHumanService = useRef(createDigitalHuman());
 
   // 采集与转写
   const startCollect = async () => {
@@ -91,8 +97,6 @@ export default function InterviewPage() {
       (videoRef.current as HTMLVideoElement).srcObject = localStream as MediaStream;
     }
     // 连接WebSocket
-    // let ws_scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    // let ws_url = ws_scheme + '://' + window.location.host + '/ws/webrtc/';
     let ws_url = 'ws://localhost:8000/ws/webrtc/';
     const ws = new window.WebSocket(ws_url);
     wsRef.current = ws;
@@ -103,7 +107,7 @@ export default function InterviewPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('收到消息',data)
+        console.log('收到消息', data);
         if (data.type === 'asr_result') {
           let text = data.text;
           // 尝试提取所有中文
@@ -112,7 +116,7 @@ export default function InterviewPage() {
             function extractChinese(obj: any): string {
               let result = '';
               if (typeof obj === 'string') {
-                result += obj.match(/[ -]|[\u4e00-\u9fa5，。！？、；：“”‘’（）《》【】]/g)?.join('') || '';
+                result += obj.match(/[ -]|[\u4e00-\u9fa5，。！？、；：""''（）《》【】]/g)?.join('') || '';
               } else if (Array.isArray(obj)) {
                 for (const item of obj) result += extractChinese(item);
               } else if (typeof obj === 'object' && obj !== null) {
@@ -123,9 +127,7 @@ export default function InterviewPage() {
             text = extractChinese(obj);
           } catch (e) {}
           setTranscript(text);
-          
-        }
-        else if (data.type === 'interview_message') {
+        } else if (data.type === 'interview_message') {
           setIsRecording(true);
           let text = data.text;
           try {
@@ -133,7 +135,7 @@ export default function InterviewPage() {
             function extractChinese(obj: any): string {
               let result = '';
               if (typeof obj === 'string') {
-                result += obj.match(/[ -]|[\u4e00-\u9fa5，。！？、；：“”‘’（）《》【】]/g)?.join('') || '';
+                result += obj.match(/[ -]|[\u4e00-\u9fa5，。！？、；：""''（）《》【】]/g)?.join('') || '';
               } else if (Array.isArray(obj)) {
                 for (const item of obj) result += extractChinese(item);
               } else if (typeof obj === 'object' && obj !== null) {
@@ -163,8 +165,6 @@ export default function InterviewPage() {
     const workletNode = new AudioWorkletNode(audioContext, 'recorder-worklet');
     workletNode.port.onmessage = (event) => {
       const inputData = event.data; // Float32Array
-      // 检查采集到的音频数据
-      //console.log('inputData[0~5]:', inputData.slice(0, 5));
       const inputSampleRate = audioContext.sampleRate;
       const targetSampleRate = 16000;
       const resampled = Array.from(downsampleBuffer(inputData, inputSampleRate, targetSampleRate));
@@ -181,15 +181,13 @@ export default function InterviewPage() {
       }
       let base64String = btoa(String.fromCharCode.apply(null, Array.from(pcmBytes)));
       if (wsRef.current && wsRef.current.readyState === 1) {
-        //console.log('发送音频帧', base64String.length);
-        wsRef.current.send(JSON.stringify({type: 'audio_frame', audio_data: base64String}));
+        wsRef.current.send(JSON.stringify({ type: 'audio_frame', audio_data: base64String }));
       }
     };
     const input = audioContext.createMediaStreamSource(localStreamRef.current as MediaStream);
     inputRef.current = input;
     input.connect(workletNode);
     workletNode.connect(audioContext.destination);
-    // 不再累积和 setInterval
     resampleBufferRef.current = [];
   }
 
@@ -204,7 +202,7 @@ export default function InterviewPage() {
     }
     // 发送结束信号
     if (wsRef.current && wsRef.current.readyState === 1) {
-      wsRef.current.send(JSON.stringify({type: 'audio_frame', audio_data: '', end: true}));
+      wsRef.current.send(JSON.stringify({ type: 'audio_frame', audio_data: '', end: true }));
     }
   }
 
@@ -217,30 +215,144 @@ export default function InterviewPage() {
     }
     stopAudioProcessing();
     setTranscript('已停止采集');
-    setCurrentQAIndex(-1);
-    currentQAIndexRef.current = -1;
-    lastTextRef.current = '';
   };
 
   // 预留：获取历史记录的异步接口
   async function getHistoryList() {
-    // TODO: 替换为实际后端请求
-    // const res = await fetch('/api/history');
-    // const data = await res.json();
-    // setHistoryList(data);
-    // 临时占位
     setHistoryList([]);
   }
 
+  // 初始化RTCPlayer
+  const initializeRTCPlayer = (streamInfo: any) => {
+    console.log('=== 开始初始化RTCPlayer ===');
+    console.log('容器元素:', digitalHumanContainerRef.current);
+    console.log('流信息:', JSON.stringify(streamInfo, null, 2));
+    
+    if (!digitalHumanContainerRef.current || !streamInfo) {
+      console.error('缺少必要参数:', { 
+        hasContainer: !!digitalHumanContainerRef.current, 
+        hasStreamInfo: !!streamInfo 
+      });
+      return;
+    }
+
+    try {
+      // 先销毁之前的实例
+      if (rtcPlayerRef.current) {
+        console.log('销毁之前的RTCPlayer实例');
+        rtcPlayerRef.current.destroy();
+        rtcPlayerRef.current = null;
+      }
+
+      // 创建RTCPlayer实例
+      console.log('创建新的RTCPlayer实例');
+      const player = new RTCPlayer();
+      rtcPlayerRef.current = player;
+
+      // 设置监听事件
+      player.on("play", function() {
+        console.log("=== RTCPlayer: 播放开始 ===");
+      })
+      .on("playing", function() {
+        console.log("=== RTCPlayer: 播放中 ===");
+        setIsDigitalHumanConnected(true);
+      })
+      .on("waiting", function() {
+        console.log("=== RTCPlayer: 等待中 ===");
+        console.log("等待原因可能是:");
+        console.log("1. 流地址无效或无法访问");
+        console.log("2. 认证信息错误");
+        console.log("3. 服务器未响应");
+        console.log("4. 网络连接问题");
+      })
+      .on("error", function(e: any) {
+        console.log("=== RTCPlayer: 错误 ===");
+        console.log("错误详情:", e);
+        console.log("错误类型:", typeof e);
+        console.log("错误消息:", e?.message || e?.toString());
+        setIsDigitalHumanConnected(false);
+      })
+      .on("not-allowed", function() {
+        console.log("=== RTCPlayer: 触发浏览器限制播放策略 ===");
+        console.log("需要用户交互才能播放");
+        player.resume();
+      });
+
+      // 设置XRTC协议参数
+      console.log('=== 设置RTCPlayer参数 ===');
+      player.playerType = 12; // XRTC模式
+      
+      const streamConfig = {
+        sid: streamInfo.sid || "vms000ec4da@dx195f094539d6f19882",
+        server: streamInfo.server || "https://xrtc-cn-east-2.xf-yun.com",
+        auth: streamInfo.auth || "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIxMDAwMDAwMDAxIiwidGltZSI6MTY0ODAxODQ2MTU0MywiaWF0IjoxNjQ4MTkxMjQyfQ.CTcOh_kCLqvvglo5VLVnjgpZzoFpzk7Un3Et0c9dhUs",
+        appid: streamInfo.appid || "1000000001",
+        userId: streamInfo.userId || "123123123",
+        roomId: streamInfo.roomId || "ase0001bbe2hu19632f0f6070442142",
+        timeStr: streamInfo.timeStr || "123412341324",
+      };
+      
+      console.log('流配置:', JSON.stringify(streamConfig, null, 2));
+      player.stream = streamConfig;
+
+      // 设置视频尺寸 - 与容器大小匹配
+      const containerElement = digitalHumanContainerRef.current;
+      if (containerElement) {
+        const containerRect = containerElement.getBoundingClientRect();
+        console.log('容器尺寸:', containerRect.width, 'x', containerRect.height);
+        
+        // 使用容器的实际尺寸，或者设置合适的比例
+        player.videoSize = { 
+          width: Math.round(containerRect.width) || 400,
+          height: Math.round(containerRect.height) || 400,
+        };
+        
+        console.log('设置RTCPlayer视频尺寸:', player.videoSize);
+      } else {
+        // 默认尺寸
+        player.videoSize = { 
+          width: 400,
+          height: 400,
+        };
+        console.log('使用默认视频尺寸:', player.videoSize);
+      }
+      
+      // 将视频流填充进容器中
+      console.log('=== 设置RTCPlayer容器 ===');
+      console.log('容器元素:', digitalHumanContainerRef.current);
+      console.log('容器ID:', digitalHumanContainerRef.current.id);
+      player.container = digitalHumanContainerRef.current;
+
+      // 开始播放
+      console.log('=== 开始RTCPlayer播放 ===');
+      player.play();
+
+    } catch (error: any) {
+      console.error('=== 初始化RTCPlayer失败 ===');
+      console.error('错误:', error);
+      console.error('错误消息:', error?.message);
+      console.error('错误堆栈:', error?.stack);
+      setIsDigitalHumanConnected(false);
+    }
+  };
+
   // 数字人相关功能
   const initializeDigitalHuman = async () => {
-    console.log('初始化数字人服务正在运行');
+    console.log('初始化数字人服务');
     try {
-      await digitalHumanService.initialize(
+      // 修复数字人初始化回调参数顺序
+      await digitalHumanService.current.initialize(
         // 音频接收回调
         (audio: DigitalHumanAudio) => {
           console.log('收到数字人音频数据');
           playDigitalHumanAudio(audio);
+        },
+        // 视频接收回调
+        (video: DigitalHumanVideo) => {
+          console.log('收到数字人视频数据');
+          // 处理视频数据 - 这里可以显示数字人视频
+          console.log('数字人视频URL:', video.videoUrl);
+          console.log('视频尺寸:', video.width, 'x', video.height);
         },
         // 错误回调
         (error: string) => {
@@ -251,30 +363,151 @@ export default function InterviewPage() {
         () => {
           console.log('数字人连接已关闭');
           setIsDigitalHumanConnected(false);
+        },
+        // 数字人连接成功回调
+        (streamUrl: string, fullMessage?: any) => {
+          console.log('数字人连接成功，流地址:', streamUrl);
+          console.log('完整连接消息:', fullMessage);
+          
+          // 解析流信息并初始化RTCPlayer
+          try {
+            if (fullMessage) {
+              // 使用完整的连接消息解析参数
+              const streamInfo = parseDigitalHumanMessage(fullMessage);
+              if (streamInfo) {
+                console.log('解析出的流信息:', streamInfo);
+                setStreamInfo(streamInfo);
+                initializeRTCPlayer(streamInfo);
+              } else {
+                console.warn('无法解析完整连接消息，尝试解析streamUrl');
+                const streamInfo = parseStreamUrl(streamUrl);
+                if (streamInfo) {
+                  setStreamInfo(streamInfo);
+                  initializeRTCPlayer(streamInfo);
+                } else {
+                  console.error('无法解析任何流信息');
+                }
+              }
+            } else {
+              // 回退到只解析streamUrl
+              console.warn('没有完整连接消息，尝试解析streamUrl');
+              const streamInfo = parseStreamUrl(streamUrl);
+              if (streamInfo) {
+                setStreamInfo(streamInfo);
+                initializeRTCPlayer(streamInfo);
+              } else {
+                console.error('无法解析streamUrl');
+              }
+            }
+          } catch (error) {
+            console.error('解析流信息失败:', error);
+          }
         }
       );
-      setIsDigitalHumanConnected(true);
       console.log('数字人服务初始化成功');
     } catch (error) {
       console.error('数字人服务初始化失败:', error);
       setIsDigitalHumanConnected(false);
     }
   };
-  
 
+  // 解析流地址，提取RTCPlayer需要的参数
+  const parseStreamUrl = (streamUrl: string) => {
+    try {
+      console.log('解析流地址:', streamUrl);
+      
+      // 如果streamUrl是完整的XRTC URL，尝试解析
+      if (streamUrl.includes('xrtc')) {
+        const url = new URL(streamUrl);
+        const params = new URLSearchParams(url.search);
+        
+        // 根据pushMode不同，解析不同的参数
+        const pushMode = params.get('pushMode') || 'xrtc';
+        
+        if (pushMode === 'xrtc') {
+          // XRTC模式
+          return {
+            sid: params.get('sid') || url.pathname.split('/').pop() || '',
+            server: `${url.protocol}//${url.host}`,
+            auth: params.get('auth') || '',
+            appid: params.get('appid') || DIGITAL_HUMAN_CONFIG.appId,
+            userId: params.get('userId') || 'user_' + Date.now(),
+            roomId: params.get('roomId') || 'room_' + Date.now(),
+            timeStr: params.get('timeStr') || Date.now().toString(),
+          };
+        } else {
+          // 其他模式，可能需要不同的解析逻辑
+          console.log('未知的pushMode:', pushMode);
+          return null;
+        }
+      } else {
+        // 如果不是XRTC URL，返回null
+        console.log('不是XRTC URL:', streamUrl);
+        return null;
+      }
+    } catch (error) {
+      console.error('解析流地址失败:', error);
+      return null;
+    }
+  };
 
-  // 在playDigitalHumanAudio中添加更多调试信息
+  // 解析数字人连接消息，提取RTCPlayer需要的参数
+  const parseDigitalHumanMessage = (message: any) => {
+    try {
+      console.log('解析数字人连接消息:', JSON.stringify(message, null, 2));
+      
+      const avatar = message.payload?.avatar;
+      if (!avatar || avatar.event_type !== 'stream_info') {
+        console.log('不是stream_info事件或缺少avatar信息');
+        return null;
+      }
+
+      const streamUrl = avatar.stream_url;
+      const streamExtend = avatar.stream_extend;
+      const sid = avatar.sid;
+
+      console.log('流地址:', streamUrl);
+      console.log('流扩展信息:', streamExtend);
+      console.log('SID:', sid);
+
+      // 解析streamUrl
+      if (streamUrl && streamUrl.includes('xrtc')) {
+        const url = new URL(streamUrl);
+        const roomId = url.pathname.split('/').pop() || '';
+        
+        // 构造RTCPlayer需要的参数
+        const streamInfo = {
+          sid: sid || '',
+          server: `http://xrtc-cn-east-2.xf-yun.com`,
+          auth: streamExtend?.user_sign || '', // 使用user_sign作为auth
+          appid: streamExtend?.appid || DIGITAL_HUMAN_CONFIG.appId,
+          userId: 'user_' + Date.now(), // 生成用户ID
+          roomId: url.pathname.replace(/^\//, ''), // 取斜杠后的部分作为roomId
+          timeStr: Date.now().toString(), // 生成时间戳
+        };
+
+        console.log('解析出的RTCPlayer参数:', JSON.stringify(streamInfo, null, 2));
+        return streamInfo;
+      } else {
+        console.log('无效的streamUrl:', streamUrl);
+        return null;
+      }
+    } catch (error) {
+      console.error('解析数字人连接消息失败:', error);
+      return null;
+    }
+  };
+
+  // 播放数字人音频
   const playDigitalHumanAudio = async (audio: DigitalHumanAudio) => {
     try {
       console.log('=== 开始播放数字人音频 ===');
       console.log('音频格式:', audio.format);
       console.log('音频大小:', audio.audioData.byteLength, '字节');
-      console.log('采样率:', audio.sampleRate);
-      console.log('声道数:', audio.channels);
       
       setIsDigitalHumanSpeaking(true);
       
-      await digitalHumanService.playAudio(audio);
+      await digitalHumanService.current.playAudio(audio);
       
       console.log('=== 数字人音频播放完成 ===');
       setIsDigitalHumanSpeaking(false);
@@ -295,23 +528,37 @@ export default function InterviewPage() {
       const request: DigitalHumanRequest = {
         text,
         voiceConfig: {
-          vcn: "x5_lingxiaoyue_flow", // 女性发音人
-          speed: 50,
-          volume: 50,
-          pitch: 50
-        },
-        audioConfig: {
-          encoding: "lame",
-          sample_rate: 16000,
-          channels: 1,
-          bit_depth: 16
+          vcn: "x4_mingge"
         }
       };
 
-      await digitalHumanService.textToSpeech(request);
+      await digitalHumanService.current.textToSpeech(request);
       setDigitalHumanText(text);
     } catch (error) {
       console.error('发送文本给数字人失败:', error);
+    }
+  };
+
+  // 手动播放数字人视频（用于测试）
+  const playDigitalHumanVideo = () => {
+    console.log('尝试播放数字人视频');
+    if (streamInfo) {
+      console.log('使用流信息:', streamInfo);
+      initializeRTCPlayer(streamInfo);
+    } else {
+      console.warn('没有可用的流信息');
+      // 创建一个测试视频流
+      const testStreamInfo = {
+        sid: "vms000ec4da@dx195f094539d6f19882",
+        server: "https://xrtc-cn-east-2.xf-yun.com",
+        auth: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIxMDAwMDAwMDAxIiwidGltZSI6MTY0ODAxODQ2MTU0MywiaWF0IjoxNjQ4MTkxMjQyfQ.CTcOh_kCLqvvglo5VLVnjgpZzoFpzk7Un3Et0c9dhUs",
+        appid: "1000000001",
+        userId: "123123123",
+        roomId: "ase0001bbe2hu19632f0f6070442142",
+        timeStr: "123412341324",
+      };
+      console.log('使用测试流信息:', testStreamInfo);
+      initializeRTCPlayer(testStreamInfo);
     }
   };
 
@@ -324,35 +571,58 @@ export default function InterviewPage() {
     return () => {
       stopCollect();
       // 关闭数字人服务
-      digitalHumanService.disconnect();
+      digitalHumanService.current.disconnect();
+      // 关闭RTCPlayer
+      if (rtcPlayerRef.current) {
+        rtcPlayerRef.current.destroy();
+      }
     };
-    // eslint-disable-next-line
   }, []);
 
-  // 预留：当前问题、提示、历史、视频流等接口
-  const currentQuestion = mockQuestion; // TODO: 替换为实际接口
+  // 添加CSS样式来截取数字人上半部分
+  useEffect(() => {
+    const addVideoStyles = () => {
+      const styleId = 'digital-human-video-styles';
+      if (document.getElementById(styleId)) {
+        return; // 样式已存在
+      }
 
-  // 新增：代码区展开/收起
-  const [showEditor, setShowEditor] = useState(false);//默认收起
-  // // 响应式：小屏默认收起，大屏默认展开
-  // useEffect(() => {
-  //   const handleResize = () => {
-  //     if (window.innerWidth < 900) {
-  //       setShowEditor(false);
-  //     } else {
-  //       setShowEditor(true);
-  //     }
-  //   };
-  //   handleResize();
-  //   window.addEventListener('resize', handleResize);
-  //   return () => window.removeEventListener('resize', handleResize);
-  // }, []);
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        #digital-human-container video {
+          object-fit: cover !important;
+          object-position: center top !important;
+        }
+        #digital-human-container canvas {
+          object-fit: cover !important;
+          object-position: center top !important;
+        }
+        #digital-human-container img {
+          object-fit: cover !important;
+          object-position: center top !important;
+        }
+      `;
+      document.head.appendChild(style);
+    };
+
+    // 延迟添加样式，确保容器已存在
+    const timer = setTimeout(addVideoStyles, 1000);
+    
+    return () => {
+      clearTimeout(timer);
+      const style = document.getElementById('digital-human-video-styles');
+      if (style) {
+        style.remove();
+      }
+    };
+  }, []);
 
   // 运行代码相关
   const [stdin, setStdin] = useState('');
   const [runResult, setRunResult] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
-  // 语言映射（language_id）
+  
   const languageIdMap: Record<string, number> = {
     plaintext: 0,
     javascript: 63,
@@ -360,18 +630,17 @@ export default function InterviewPage() {
     typescript: 74,
     java: 62,
   };
+
   // 运行代码
   async function handleRunCode() {
     setIsRunning(true);
     setRunResult('');
     try {
       const res = await runCode(code, languageIdMap[language] || 0, stdin);
-      // 若stdout为空则显示stderr（红字）
       if (res && typeof res === 'object') {
         if (res.stdout && res.stdout.trim() !== '') {
           setRunResult(res.stdout);
         } else if (res.stderr && res.stderr.trim() !== '') {
-          // 用特殊标记包裹stderr，后续渲染时可用红色显示
           setRunResult(`<stderr>${res.stderr}</stderr>`);
         } else {
           setRunResult('');
@@ -385,9 +654,12 @@ export default function InterviewPage() {
     setIsRunning(false);
   }
 
+  // 新增：代码区展开/收起
+  const [showEditor, setShowEditor] = useState(false);
+
   return (
     <div className="h-screen w-screen bg-gray-900 text-white flex flex-col md:flex-row relative overflow-hidden">
-      {/* 展开/收起按钮，固定在右上角，z-50，移动端更明显 */}
+      {/* 展开/收起按钮 */}
       <button
         className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg transition-all md:top-6 md:right-6 md:px-5 md:py-2.5 text-sm md:text-base"
         onClick={() => setShowEditor(v => !v)}
@@ -395,7 +667,8 @@ export default function InterviewPage() {
       >
         {showEditor ? '收起代码区' : '展开代码区'}
       </button>
-      {/* 左侧：问题区（可滚动，按钮粘性，内容不超宽） */}
+
+      {/* 左侧：问题区 */}
       <div
         className={`transition-all duration-300 bg-gray-800 border-r border-gray-700 flex flex-col ${showEditor ? 'w-full md:w-1/5' : 'w-1/2'} min-w-[120px] max-h-screen`}
         style={{ overflow: 'hidden' }}
@@ -413,7 +686,7 @@ export default function InterviewPage() {
             className="text-gray-300 text-sm break-words whitespace-pre-line max-w-full"
             style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
           >
-            {currentQuestion.title}
+            {mockQuestion.title}
           </div>
         </div>
         <div className="sticky bottom-0 left-0 right-0 bg-gray-800 p-4 flex flex-col gap-2 z-10 border-t border-gray-700">
@@ -423,13 +696,6 @@ export default function InterviewPage() {
           >
             查看历史记录
           </button>
-          {/* <button
-            className={`bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm w-full flex items-center justify-center ${isRunning ? 'opacity-60 cursor-not-allowed' : ''}`}
-            onClick={handleRunCode}
-            disabled={isRunning}
-          >
-            {isRunning ? '运行中...' : '运行代码'}
-          </button> */}
         </div>
       </div>
 
@@ -460,7 +726,6 @@ export default function InterviewPage() {
                 style={{ minWidth: 80 }}
               >
                 {isRunning ? '运行中...' : '运行'}
-                {/* 运行符号：使用经典的“播放”三角形图标 */}
                 <svg className="ml-1 w-3 h-3" viewBox="0 0 12 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                   <polygon points="3,2 10,6 3,10" />
                 </svg>
@@ -484,7 +749,6 @@ export default function InterviewPage() {
                 }}
               />
             </div>
-            {/* 输入框和运行结果 */}
             <div className="mb-2">
               <label className="block text-gray-400 text-xs mb-1">标准输入（stdin，可选）</label>
               <textarea
@@ -512,12 +776,12 @@ export default function InterviewPage() {
         )}
       </div>
 
-      {/* 右侧：视频区（竖直排列，收起IDE时也能完整显示） */}
+      {/* 右侧：视频区 */}
       <div
         className={`transition-all duration-300 bg-gray-800 p-6 flex flex-col gap-8 items-center w-full ${showEditor ? 'md:w-1/5' : ''} min-w-[120px]`}
         style={{ minHeight: '0', justifyContent: 'center' }}
       >
-        {/* 面试官视频块 */}
+        {/* 数字人面试官视频块 */}
         <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
           <div className="text-center text-xs text-gray-400 mb-2">
             数字人面试官
@@ -525,25 +789,36 @@ export default function InterviewPage() {
               {isDigitalHumanConnected ? '已连接' : '未连接'}
             </span>
           </div>
-          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-4 min-w-[120px] min-h-[120px] max-w-[400px] max-h-[40vh] relative">
-            {/* 数字人形象渲染区域 */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              {isDigitalHumanSpeaking ? (
-                <div className="text-blue-400 animate-pulse flex flex-col items-center">
-                  <div className="text-2xl mb-2">🎤</div>
-                  <div className="text-sm">正在说话...</div>
-                  <div className="text-xs text-blue-300 mt-1">状态: {isDigitalHumanSpeaking ? 'true' : 'false'}</div>
-                </div>
-              ) : (
-                <div className="text-gray-500 flex flex-col items-center">
-                  <div className="text-4xl mb-2">🤖</div>
-                  <div className="text-sm">数字人形象</div>
-                  <div className="text-xs text-gray-400 mt-1">状态: {isDigitalHumanSpeaking ? 'true' : 'false'}</div>
-                </div>
-              )}
-            </div>
+          
+          {/* RTCPlayer容器 */}
+          <div className="bg-black w-full aspect-square rounded-md flex items-center justify-center text-3xl mb-4 min-w-[200px] min-h-[200px] max-w-[400px] max-h-[400px] relative overflow-hidden">
+            <div 
+              ref={digitalHumanContainerRef}
+              id="digital-human-container"
+              className="w-full h-full"
+              style={{ 
+                width: '100%', 
+                height: '100%',
+                backgroundColor: 'black',
+                minWidth: '200px',
+                minHeight: '200px',
+                overflow: 'hidden'
+              }}
+            />
             
-            {/* 添加音频可视化效果 */}
+
+            
+            {/* 测试视频元素 */}
+            <video
+              id="test-video"
+              className="absolute inset-0 w-full h-full object-cover rounded-md"
+              style={{ display: 'none' }}
+              autoPlay
+              muted
+              playsInline
+            />
+            
+            {/* 音频可视化效果 */}
             {isDigitalHumanSpeaking && (
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1">
                 {[...Array(5)].map((_, i) => (
@@ -592,9 +867,16 @@ export default function InterviewPage() {
               >
                 测试语音
               </button>
+              <button
+                className="px-3 py-1 rounded text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={playDigitalHumanVideo}
+              >
+                播放视频
+              </button>
             </div>
           </div>
         </div>
+
         {/* 面试者视频块 */}
         <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
           <div className="text-center text-xs text-gray-400 mb-2">面试者</div>
@@ -628,7 +910,8 @@ export default function InterviewPage() {
           <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{transcript}</div>
         </div>
       </div>
-      {/* 历史记录弹窗（Tailwind + Headless UI） */}
+
+      {/* 历史记录弹窗 */}
       <Transition appear show={historyVisible} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setHistoryVisible(false)}>
           <Transition.Child
