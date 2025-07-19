@@ -125,6 +125,7 @@ export class DigitalHumanWebSocket {
   private onAudioReceived?: (audio: DigitalHumanAudio) => void;
   private onError?: (error: string) => void;
   private onClose?: () => void;
+  private audioTimeout: NodeJS.Timeout | null = null;
 
   constructor(
     onAudioReceived?: (audio: DigitalHumanAudio) => void,
@@ -202,18 +203,39 @@ private async handleMessage(data: any) {
       if (response.payload) {
         // 处理TTS音频数据
         if (response.payload.tts) {
-          const tts = response.payload.tts;
-          if (tts.audio && tts.audio.length > 0) {
-            // 解码base64音频数据
-            const audioBytes = this.base64ToUint8Array(tts.audio);
-            this.audioChunks.push(audioBytes);
+            console.log('=== TTS响应详情 ===');
+            console.log('状态:', response.payload.tts.status);
+            console.log('音频长度:', response.payload.tts.audio?.length || 0);
+            console.log('编码格式:', response.payload.tts.encoding);
             
-            // 检查是否为最后一帧
-            if (tts.status === 2) {
-              this.combineAudioChunks();
+            const tts = response.payload.tts;
+            if (tts.audio && tts.audio.length > 0) {
+              // 解码base64音频数据
+              const audioBytes = this.base64ToUint8Array(tts.audio);
+              console.log('解码后音频大小:', audioBytes.length, '字节');
+              
+              this.audioChunks.push(audioBytes);
+              console.log('当前音频块数量:', this.audioChunks.length);
+              
+              // 清除之前的超时
+              if (this.audioTimeout) {
+                clearTimeout(this.audioTimeout);
+              }
+              
+              // 检查是否为最后一帧
+              if (tts.status === 2) {
+                console.log('收到最后一帧，开始合并音频');
+                this.combineAudioChunks();
+              } else {
+                console.log('还有更多音频帧，继续等待...');
+                // 设置超时，如果3秒内没有收到下一帧，就处理当前音频
+                this.audioTimeout = setTimeout(() => {
+                  console.log('音频接收超时，处理当前音频块');
+                  this.combineAudioChunks();
+                }, 3000);
+              }
             }
           }
-        }
         
         // 处理NLP文本数据
         if (response.payload.nlp) {
@@ -295,12 +317,15 @@ private async handleMessage(data: any) {
     this.ws.send(JSON.stringify(data));
   }
 
-  // 合并音频块
-  private combineAudioChunks(): void {
+  // 修改combineAudioChunks方法，正确检测音频格式
+private combineAudioChunks(): void {
     if (this.audioChunks.length === 0) return;
+    
+    console.log('开始合并音频块，数量:', this.audioChunks.length);
     
     // 计算总长度
     const totalLength = this.audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    console.log('总音频大小:', totalLength, '字节');
     
     // 合并所有音频块
     const combinedAudio = new Uint8Array(totalLength);
@@ -311,19 +336,44 @@ private async handleMessage(data: any) {
       offset += chunk.length;
     }
     
-    // 创建音频对象 - 根据实际接收到的格式
+    // 检测音频格式
+    let format = 'raw';
+    if (combinedAudio.length >= 4) {
+      const header = new Uint8Array(combinedAudio.slice(0, 4));
+      const headerStr = String.fromCharCode(...header);
+      
+      // 检测MP3格式
+      if (headerStr.startsWith('ID3') || 
+          (header[0] === 0xFF && (header[1] & 0xE0) === 0xE0)) {
+        format = 'mp3';
+        console.log('检测到MP3格式');
+      }
+      // 检测WAV格式
+      else if (headerStr === 'RIFF') {
+        format = 'wav';
+        console.log('检测到WAV格式');
+      }
+      else {
+        console.log('未检测到已知格式，使用raw格式');
+      }
+    }
+    
+    // 创建音频对象
     const audio: DigitalHumanAudio = {
       audioData: combinedAudio.buffer,
-      format: 'raw', // 根据API响应，格式是raw
+      format: format,
       sampleRate: 16000,
       channels: 1
     };
+    
+    console.log('音频对象创建完成，格式:', format, '大小:', combinedAudio.length);
     
     // 回调音频数据
     this.onAudioReceived?.(audio);
     
     // 清空音频块
     this.audioChunks = [];
+    console.log('音频块已清空');
   }
 
   // Base64转Uint8Array
@@ -374,49 +424,91 @@ export class DigitalHumanService {
     this.wsClient.sendTextToSpeech(request);
   }
 
-  // 播放音频
-//   async playAudio(audio: DigitalHumanAudio): Promise<void> {
-//     try {
-//       // 创建AudioContext
-//       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-//       // 对于raw格式的音频，需要特殊处理
-//       if (audio.format === 'raw') {
-//         // 将ArrayBuffer转换为Float32Array
-//         const audioData = new Int16Array(audio.audioData);
-//         const floatData = new Float32Array(audioData.length);
+  //播放音频
+  // 修复playAudio方法，正确处理不同格式
+async playAudio(audio: DigitalHumanAudio): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log(`=== 开始播放音频 ===`);
+        console.log(`格式: ${audio.format}`);
+        console.log(`大小: ${audio.audioData.byteLength} 字节`);
+        console.log(`采样率: ${audio.sampleRate}`);
+        console.log(`声道数: ${audio.channels}`);
         
-//         // 转换为-1到1的浮点数
-//         for (let i = 0; i < audioData.length; i++) {
-//           floatData[i] = audioData[i] / 32768.0;
-//         }
+        // 创建AudioContext
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         
-//         // 创建AudioBuffer
-//         const audioBuffer = audioContext.createBuffer(audio.channels, floatData.length, audio.sampleRate);
-//         audioBuffer.copyToChannel(floatData, 0);
-        
-//         // 创建音频源
-//         const source = audioContext.createBufferSource();
-//         source.buffer = audioBuffer;
-//         source.connect(audioContext.destination);
-        
-//         // 播放音频
-//         source.start(0);
-//       } else {
-//         // 对于其他格式，使用默认解码
-//         const audioBuffer = await audioContext.decodeAudioData(audio.audioData);
-//         const source = audioContext.createBufferSource();
-//         source.buffer = audioBuffer;
-//         source.connect(audioContext.destination);
-//         source.start(0);
-//       }
-      
-//       console.log('开始播放数字人音频');
-//     } catch (error) {
-//       console.error('播放音频失败:', error);
-//       throw error;
-//     }
-//   }
+        if (audio.format === 'mp3') {
+          console.log('使用MP3解码播放');
+          // 对于MP3格式，使用decodeAudioData
+          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            // 监听播放结束事件
+            source.onended = () => {
+              console.log('MP3音频播放完成');
+              resolve();
+            };
+            
+            source.start(0);
+            console.log('MP3音频开始播放');
+          }).catch(error => {
+            console.error('MP3解码失败:', error);
+            reject(error);
+          });
+        } else if (audio.format === 'raw') {
+          console.log('使用Raw格式播放');
+          // 对于raw格式，需要特殊处理
+          const audioData = new Int16Array(audio.audioData);
+          const floatData = new Float32Array(audioData.length);
+          
+          // 转换为-1到1的浮点数
+          for (let i = 0; i < audioData.length; i++) {
+            floatData[i] = audioData[i] / 32768.0;
+          }
+          
+          // 创建AudioBuffer
+          const audioBuffer = audioContext.createBuffer(audio.channels, floatData.length, audio.sampleRate);
+          audioBuffer.copyToChannel(floatData, 0);
+          
+          // 创建音频源
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          
+          // 监听播放结束事件
+          source.onended = () => {
+            console.log('Raw音频播放完成');
+            resolve();
+          };
+          
+          source.start(0);
+          console.log('Raw音频开始播放');
+        } else {
+          console.log('使用默认解码播放');
+          // 对于其他格式，尝试默认解码
+          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            source.onended = () => {
+              console.log('默认格式音频播放完成');
+              resolve();
+            };
+            
+            source.start(0);
+            console.log('默认格式音频开始播放');
+          }).catch(reject);
+        }
+      } catch (error) {
+        console.error('播放音频失败:', error);
+        reject(error);
+      }
+    });
+  }
 
   // 关闭服务
   disconnect(): void {

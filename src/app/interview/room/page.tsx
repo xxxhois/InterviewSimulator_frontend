@@ -234,6 +234,7 @@ export default function InterviewPage() {
 
   // 数字人相关功能
   const initializeDigitalHuman = async () => {
+    console.log('初始化数字人服务正在运行');
     try {
       await digitalHumanService.initialize(
         // 音频接收回调
@@ -259,84 +260,8 @@ export default function InterviewPage() {
       setIsDigitalHumanConnected(false);
     }
   };
+  
 
-  // 修复playAudio方法，正确处理MP3格式
-  async function playAudio(audio: DigitalHumanAudio): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        console.log(`开始播放音频，格式: ${audio.format}, 大小: ${audio.audioData.byteLength} 字节`);
-        
-        // 创建AudioContext
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        
-        if (audio.format === 'mp3') {
-          // 对于MP3格式，使用decodeAudioData
-          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-            
-            // 监听播放结束事件
-            source.onended = () => {
-              console.log('数字人音频播放完成');
-              resolve();
-            };
-            
-            source.start(0);
-            console.log('MP3音频开始播放');
-          }).catch(error => {
-            console.error('MP3解码失败:', error);
-            reject(error);
-          });
-        } else if (audio.format === 'raw') {
-          // 对于raw格式，需要特殊处理
-          const audioData = new Int16Array(audio.audioData);
-          const floatData = new Float32Array(audioData.length);
-          
-          // 转换为-1到1的浮点数
-          for (let i = 0; i < audioData.length; i++) {
-            floatData[i] = audioData[i] / 32768.0;
-          }
-          
-          // 创建AudioBuffer
-          const audioBuffer = audioContext.createBuffer(audio.channels, floatData.length, audio.sampleRate);
-          audioBuffer.copyToChannel(floatData, 0);
-          
-          // 创建音频源
-          const source = audioContext.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioContext.destination);
-          
-          // 监听播放结束事件
-          source.onended = () => {
-            console.log('数字人音频播放完成');
-            resolve();
-          };
-          
-          source.start(0);
-          console.log('Raw音频开始播放');
-        } else {
-          // 对于其他格式，尝试默认解码
-          audioContext.decodeAudioData(audio.audioData).then(audioBuffer => {
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-            
-            source.onended = () => {
-              console.log('数字人音频播放完成');
-              resolve();
-            };
-            
-            source.start(0);
-            console.log('默认格式音频开始播放');
-          }).catch(reject);
-        }
-      } catch (error) {
-        console.error('播放音频失败:', error);
-        reject(error);
-      }
-    });
-  }
 
   // 在playDigitalHumanAudio中添加更多调试信息
   const playDigitalHumanAudio = async (audio: DigitalHumanAudio) => {
@@ -349,7 +274,7 @@ export default function InterviewPage() {
       
       setIsDigitalHumanSpeaking(true);
       
-      await playAudio(audio);
+      await digitalHumanService.playAudio(audio);
       
       console.log('=== 数字人音频播放完成 ===');
       setIsDigitalHumanSpeaking(false);
