@@ -70,6 +70,9 @@ export default function InterviewPage() {
   const [isDigitalHumanSpeaking, setIsDigitalHumanSpeaking] = useState(false);
   const [digitalHumanText, setDigitalHumanText] = useState('');
   const [streamInfo, setStreamInfo] = useState<any>(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+  const [isAudioActivated, setIsAudioActivated] = useState(false);
+  const [isDigitalHumanInitializing, setIsDigitalHumanInitializing] = useState(false);
 
   // 视频/音频/WebSocket相关ref
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -88,6 +91,7 @@ export default function InterviewPage() {
 
   // 采集与转写
   const startCollect = async () => {
+
     setTranscript('转写内容将实时显示在这里...');
     setQuestion('面试官问题将显示在这里');
     // 获取音视频流
@@ -100,10 +104,18 @@ export default function InterviewPage() {
     let ws_url = 'ws://localhost:8000/ws/webrtc/';
     const ws = new window.WebSocket(ws_url);
     wsRef.current = ws;
-    ws.onopen = () => {
-      setIsRecording(true);
-      startAudioProcessing();
-    };
+          ws.onopen = () => {
+        setIsRecording(true);
+        startAudioProcessing();
+        
+        // 发送创建流消息
+        console.log('发送创建流消息...');
+        ws.send(JSON.stringify({
+          "type": "create_stream",
+          "title": "面试视频流",
+          "description": "实时面试"
+        }));
+      };
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -339,6 +351,7 @@ export default function InterviewPage() {
   // 数字人相关功能
   const initializeDigitalHuman = async () => {
     console.log('初始化数字人服务');
+    setIsDigitalHumanInitializing(true);
     try {
       // 修复数字人初始化回调参数顺序
       await digitalHumanService.current.initialize(
@@ -399,15 +412,24 @@ export default function InterviewPage() {
                 console.error('无法解析streamUrl');
               }
             }
+            
+            // 在数字人连接成功后，主动激活音频上下文
+            console.log('数字人连接成功，主动激活音频上下文...');
+            setTimeout(() => {
+              testAudioPlayback(false); // 静默激活，不显示弹窗
+            }, 1000); // 延迟1秒确保RTCPlayer初始化完成
+            
           } catch (error) {
             console.error('解析流信息失败:', error);
           }
         }
       );
       console.log('数字人服务初始化成功');
+      setIsDigitalHumanInitializing(false);
     } catch (error) {
       console.error('数字人服务初始化失败:', error);
       setIsDigitalHumanConnected(false);
+      setIsDigitalHumanInitializing(false);
     }
   };
 
@@ -505,6 +527,13 @@ export default function InterviewPage() {
       console.log('音频格式:', audio.format);
       console.log('音频大小:', audio.audioData.byteLength, '字节');
       
+      // 在播放数字人音频前，确保音频上下文已激活
+      //console.log('播放数字人音频前，确保音频上下文已激活...');
+      //testAudioPlayback(false); // 静默激活音频上下文
+      
+      // 等待一小段时间确保音频上下文完全激活
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       setIsDigitalHumanSpeaking(true);
       
       await digitalHumanService.current.playAudio(audio);
@@ -515,6 +544,90 @@ export default function InterviewPage() {
       console.error('播放数字人音频失败:', error);
       setIsDigitalHumanSpeaking(false);
     }
+  };
+
+  // 测试音频播放功能
+  const testAudioPlayback = (showAlert: boolean = true) => {
+    try {
+      console.log('=== 测试音频播放功能 ===');
+      
+      // 创建音频上下文
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      console.log('音频上下文状态:', audioContext.state);
+      
+      // 如果音频上下文被暂停，尝试恢复
+      if (audioContext.state === 'suspended') {
+        console.log('音频上下文被暂停，尝试恢复...');
+        audioContext.resume().then(() => {
+          console.log('音频上下文已恢复，状态:', audioContext.state);
+          playTestTone(audioContext, showAlert);
+        }).catch(error => {
+          console.error('恢复音频上下文失败:', error);
+          if (showAlert) {
+            alert('无法恢复音频上下文，请检查浏览器设置');
+          }
+        });
+      } else {
+        playTestTone(audioContext, showAlert);
+      }
+      
+    } catch (error) {
+      console.error('测试音频播放失败:', error);
+      if (showAlert) {
+        alert('测试音频播放失败: ' + error);
+      }
+    }
+  };
+
+  // 播放测试音调
+  const playTestTone = (audioContext: AudioContext, showAlert: boolean = true) => {
+    try {
+      // 创建一个简单的测试音调
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4音符
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // 降低音量
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 1); // 播放1秒
+      
+      console.log('测试音调开始播放');
+      if (showAlert) {
+        alert('测试音调播放成功！如果听到声音，说明音频功能正常。');
+      }
+      
+    } catch (error) {
+      console.error('播放测试音调失败:', error);
+      if (showAlert) {
+        alert('播放测试音调失败: ' + error);
+      }
+    }
+  };
+
+  // 处理欢迎弹窗关闭
+  const handleWelcomeModalClose = () => {
+    console.log('用户关闭欢迎弹窗，激活音频上下文...');
+    
+    // 激活音频上下文
+    testAudioPlayback(false);
+    
+    // 设置音频已激活状态
+    setIsAudioActivated(true);
+    
+    // 关闭弹窗
+    setShowWelcomeModal(false);
+    
+    // 在用户交互后初始化数字人服务
+    console.log('用户交互完成，开始初始化数字人服务...');
+    initializeDigitalHuman();
+    
+    console.log('音频上下文已激活，欢迎弹窗已关闭，数字人服务初始化中...');
+    startCollect();
+
   };
 
   // 发送文本给数字人
@@ -565,8 +678,7 @@ export default function InterviewPage() {
   useEffect(() => {
     // 页面初始化时获取历史记录
     getHistoryList();
-    // 初始化数字人服务
-    initializeDigitalHuman();
+    // 数字人服务将在用户交互后初始化
     
     return () => {
       stopCollect();
@@ -785,8 +897,11 @@ export default function InterviewPage() {
         <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
           <div className="text-center text-xs text-gray-400 mb-2">
             数字人面试官
-            <span className={`ml-2 px-2 py-1 rounded text-xs ${isDigitalHumanConnected ? 'bg-green-600' : 'bg-red-600'}`}>
-              {isDigitalHumanConnected ? '已连接' : '未连接'}
+            <span className={`ml-2 px-2 py-1 rounded text-xs ${isDigitalHumanConnected ? 'bg-green-600' : isDigitalHumanInitializing ? 'bg-yellow-600' : 'bg-red-600'}`}>
+              {isDigitalHumanConnected ? '已连接' : isDigitalHumanInitializing ? '连接中...' : '未连接'}
+            </span>
+            <span className={`ml-2 px-2 py-1 rounded text-xs ${isAudioActivated ? 'bg-blue-600' : 'bg-yellow-600'}`}>
+              {isAudioActivated ? '音频已激活' : '音频未激活'}
             </span>
           </div>
           
@@ -847,23 +962,23 @@ export default function InterviewPage() {
             <div className="flex space-x-2">
               <button
                 className={`px-3 py-1 rounded text-xs font-medium ${
-                  isDigitalHumanConnected 
+                  isDigitalHumanConnected && isAudioActivated
                     ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                     : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 }`}
                 onClick={() => sendTextToDigitalHuman(digitalHumanText)}
-                disabled={!isDigitalHumanConnected || !digitalHumanText.trim()}
+                disabled={!isDigitalHumanConnected || !isAudioActivated || !digitalHumanText.trim() || isDigitalHumanInitializing}
               >
                 播放语音
               </button>
               <button
                 className={`px-3 py-1 rounded text-xs font-medium ${
-                  isDigitalHumanConnected 
+                  isDigitalHumanConnected && isAudioActivated
                     ? 'bg-green-600 hover:bg-green-700 text-white' 
                     : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 }`}
                 onClick={() => sendTextToDigitalHuman('你好，我是数字人面试官，很高兴见到你！')}
-                disabled={!isDigitalHumanConnected}
+                disabled={!isDigitalHumanConnected || !isAudioActivated || isDigitalHumanInitializing}
               >
                 测试语音
               </button>
@@ -872,6 +987,12 @@ export default function InterviewPage() {
                 onClick={playDigitalHumanVideo}
               >
                 播放视频
+              </button>
+              <button
+                className="px-3 py-1 rounded text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => testAudioPlayback(true)}
+              >
+                测试音频
               </button>
             </div>
           </div>
@@ -910,6 +1031,69 @@ export default function InterviewPage() {
           <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{transcript}</div>
         </div>
       </div>
+
+      {/* 欢迎弹窗 */}
+      <Transition appear show={showWelcomeModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => {}}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-900/80" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700">
+                  <div className="text-center">
+                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 mb-4">
+                      <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </div>
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-bold leading-6 text-white mb-2"
+                    >
+                      欢迎使用AI面试模拟器
+                    </Dialog.Title>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-300 mb-4">
+                        这是一个基于AI的面试模拟系统，包含数字人面试官和实时语音交互功能。
+                      </p>
+                      <p className="text-xs text-gray-400 mb-6">
+                        开始体验后系统将自动开启摄像头和麦克风，请做好准备。
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors"
+                      onClick={handleWelcomeModalClose}
+                    >
+                      开始体验
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
 
       {/* 历史记录弹窗 */}
       <Transition appear show={historyVisible} as={Fragment}>

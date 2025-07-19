@@ -541,7 +541,7 @@ const DIGITAL_HUMAN_CONFIG = {
   
     // 播放音频
     async playAudio(audio: DigitalHumanAudio): Promise<void> {
-      return new Promise((resolve, reject) => {
+      return new Promise(async (resolve, reject) => {
         try {
           console.log(`=== 开始播放音频 ===`);
           console.log(`格式: ${audio.format}`);
@@ -550,6 +550,14 @@ const DIGITAL_HUMAN_CONFIG = {
           console.log(`声道数: ${audio.channels}`);
           
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          console.log('音频上下文状态:', audioContext.state);
+          
+          // 如果音频上下文被暂停，尝试恢复
+          if (audioContext.state === 'suspended') {
+            console.log('音频上下文被暂停，尝试恢复...');
+            await audioContext.resume();
+            console.log('音频上下文已恢复，状态:', audioContext.state);
+          }
           
           if (audio.format === 'mp3' || audio.format === 'lame') {
             console.log('使用MP3解码播放');
