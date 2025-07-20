@@ -8,6 +8,8 @@ import { gsap } from 'gsap';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import Navigation from '@/components/Navigation';
 
 // 动态导入echarts组件以避免SSR问题
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -345,6 +347,7 @@ const MainDashboard = () => {
   };
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen bg-gradient-to-b from-purple-100 to-purple-200 relative overflow-hidden">
       {/* 背景装饰元素 */}
       <div className="absolute top-20 left-10 w-20 h-20 bg-purple-300 rounded-full opacity-20 animate-pulse"></div>
@@ -357,64 +360,7 @@ const MainDashboard = () => {
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,_#8b5cf6_1px,_transparent_1px)] bg-[length:50px_50px]"></div>
       </div>
 
-      {/* 导航栏 */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-purple-200 fixed top-0 left-0 right-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <motion.h1 
-                className="text-2xl font-bold text-purple-800"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
-              >
-                讯飞AI模拟面试系统
-              </motion.h1>
-              <div className="hidden md:flex space-x-6">
-                <motion.button 
-                  className="text-purple-700 hover:text-purple-600 font-medium transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  首页
-                </motion.button>
-                <motion.button 
-                  className="text-purple-700 hover:text-purple-600 font-medium transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  刷题
-                </motion.button>
-                <motion.button 
-                  className="text-purple-700 hover:text-purple-600 font-medium transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  学习
-                </motion.button>
-                <motion.button 
-                  className="text-purple-700 hover:text-purple-600 font-medium transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  个人
-                </motion.button>
-              </div>
-            </div>
-            <motion.div 
-              className="flex items-center space-x-4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <div className="bg-gradient-to-r from-purple-400 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                <span className="mr-2">⏰</span>
-                今日面试: 14:30
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </nav>
+      <Navigation/>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 relative z-10">
         {/* 功能卡片区域 */}
@@ -652,6 +598,7 @@ const MainDashboard = () => {
         </motion.div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 };
 

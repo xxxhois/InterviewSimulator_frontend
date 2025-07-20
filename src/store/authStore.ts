@@ -17,7 +17,7 @@ interface AuthState {
   setToken: (token: string) => void;
   setUser: (user: User) => void;
   logout: () => void;
-  //checkAuthStatus: () => Promise<boolean>;
+  initializeAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -28,11 +28,33 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isLoggedIn: false,
 
+      // 初始化认证状态
+      initializeAuth: () => {
+        const token = localStorage.getItem('auth_token');
+        const userStr = localStorage.getItem('auth_user');
+        
+        if (token) {
+          let user = null;
+          if (userStr) {
+            try {
+              user = JSON.parse(userStr);
+            } catch (e) {
+              console.error('Failed to parse user data:', e);
+            }
+          }
+          
+          set({ 
+            token, 
+            user, 
+            isLoggedIn: true 
+          });
+        }
+      },
+
       // 设置 token
       setToken: (token: string) => {
         set({ token, isLoggedIn: true });
         localStorage.setItem('auth_token', token);
-        
       },
 
       // 设置用户信息
@@ -78,12 +100,18 @@ export const useAuthStore = create<AuthState>()(
       // },
     }),
     {
-      name: 'auth-storage', // localStorage 的 key
+      name: 'auth-storage',
       partialize: (state) => ({ 
         token: state.token,
-        //user: state.user,
+        user: state.user,
         isLoggedIn: state.isLoggedIn 
       }),
+      // 添加初始化逻辑
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.initializeAuth();
+        }
+      },
     }
   )
 );

@@ -1,7 +1,9 @@
 import Providers from '@/components/Providers';
+//import { useAuthStore } from '@/store/authStore';
 import { QueryClient } from '@tanstack/react-query';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+// import { useEffect } from 'react';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,6 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const queryClient = new QueryClient();
+
+
 
   return (
     <html lang="en">

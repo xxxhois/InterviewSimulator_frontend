@@ -1,6 +1,5 @@
 /*这个组件是用于保护路由组件的Hook，验证localStorage中的token，如果没有，则重定向到登录页面*/ 
 
-import { useAuthStore } from '@/store/authStore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -13,31 +12,43 @@ export const useAuth = (options: UseAuthOptions = {}) => {
   const { requireAuth = true, redirectTo = '/auth/login' } = options;
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  
-  const { 
-    token, 
-    isLoggedIn, 
-    logout
-  } = useAuthStore();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const validateAuth = () => {
+    const checkAuth = () => {
       setIsLoading(true);
       
-      if (!isLoggedIn && requireAuth) {
+      // 直接从 localStorage 检查 token
+      const authToken = localStorage.getItem('auth_token');
+      const hasToken = !!authToken && authToken.trim() !== '';
+      
+      setIsAuthenticated(hasToken);
+      setToken(authToken);
+      
+      if (!hasToken && requireAuth) {
+        console.log('未找到有效token，重定向到登录页面');
         router.push(redirectTo);
       }
       
       setIsLoading(false);
     };
 
-    validateAuth();
-  }, [isLoggedIn, requireAuth]);
+    checkAuth();
+  }, [requireAuth, redirectTo, router]);
+
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    setIsAuthenticated(false);
+    setToken(null);
+    router.push('/auth/login');
+  };
 
   return {
     isLoading,
-    isAuthenticated: isLoggedIn, // 直接使用 authStore 状态
-    isLoggedIn,
+    isAuthenticated,
+    isLoggedIn: isAuthenticated,
     token,
     logout,
   };
