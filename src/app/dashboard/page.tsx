@@ -568,7 +568,7 @@ const MainDashboard = () => {
             </div>
           </div>
 
-          {/* 多维度能力评估 */}
+          {/* 多维度能力评估
           <div className="mt-8">
             <h3 className="text-xl font-bold text-purple-700 mb-4">📊 多维度能力评估</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -594,7 +594,7 @@ const MainDashboard = () => {
                 />
               </div>
             </div>
-          </div>
+          </div> */}
         </motion.div>
       </div>
     </div>
