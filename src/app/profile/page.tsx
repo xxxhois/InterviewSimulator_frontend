@@ -43,6 +43,7 @@ export default function ProfilePage() {
         resume_id: 1,
         resume_name: '张三',
         expected_position: '软件工程师',
+        updated_at: '2024-01-01T12:00:00Z',
         completed: true
       }
     });

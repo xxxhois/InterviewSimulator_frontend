@@ -18,6 +18,7 @@ export type Profile = {
     resume_id: number;
     resume_name: string;
     expected_position: string;
+    updated_at: string;
     completed: boolean;
   };
 }
