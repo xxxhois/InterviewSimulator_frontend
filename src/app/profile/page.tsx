@@ -1,11 +1,14 @@
 'use client';
 
+import { getProfile, updateProfile } from '@/api/profile';
+import { recognizeResume } from '@/api/resume';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { showToast } from '@/components/Toast';
+import { Profile } from '@/types/profile';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { Profile } from '@/types/profile';
+import defaultAvatar from '@/assets/企鹅.jpg';
 
 // 动态导入echarts组件
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -20,58 +23,65 @@ export default function ProfilePage() {
   const [comment, setComment] = useState<string | null>(null);
   const [commentLoading, setCommentLoading] = useState(true);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: 替换为真实API请求
-    setProfile({
-      id: 1,
-      username: 'testuser',
-      email: 'user@example.com',
-      first_name: '张',
-      last_name: '三',
-      phone: 13800138000,
-      avatar: '/media/avatars/user1.jpg',
-      target_position: {
-        job_position_id: 0,
-        position_name: '后端工程师',
-        company_name: '字节跳动',
-        expected_salary: [30, 40]
-      },
-      date_joined: '2024-01-01T12:00:00Z',
-      last_login: '2024-01-01T12:00:00Z',
-      resume: {
-        resume_id: 1,
-        resume_name: '张三',
-        expected_position: '软件工程师',
-        updated_at: '2024-01-01T12:00:00Z',
-        completed: true
-      }
-    });
-    setResumes([
-      { resume_id: 1, resume_name: '张三-主简历', expected_position: '软件工程师', completed: true, updated: '2024-04-01' },
-      { resume_id: 2, resume_name: '张三-英文版', expected_position: 'Frontend Engineer', completed: false, updated: '2024-03-15' }
-    ]);
-    setPracticeRecords([
-      { id: 1, title: '算法与数据结构', date: '2024-04-10', score: 85 },
-      { id: 2, title: 'React Hooks详解', date: '2024-04-08', score: 90 }
-    ]);
-    setInterviewRecords([
-      { id: 1, company: '字节跳动', position: '前端开发', date: '2024-04-05', result: '通过' },
-      { id: 2, company: '腾讯', position: '前端开发', date: '2024-03-28', result: '未通过' }
-    ]);
+    const fetchProfileData = async () => {
+      try {
+        setProfileLoading(true);
+        // 获取用户资料
+        const profileData = await getProfile();
+        setProfile(profileData);
+        
+        // 从profile中提取简历信息
+        if (profileData.resume) {
+          setResumes([
+            {
+              resume_id: profileData.resume.resume_id || 0,
+              resume_name: profileData.resume.resume_name || '未命名简历',
+              expected_position: profileData.resume.expected_position || '未设置',
+              completed: profileData.resume.completed || false,
+              updated: profileData.resume.updated_at ? profileData.resume.updated_at.slice(0, 10) : '未知'
+            }
+          ]);
+        } else {
+          // 如果没有简历信息，设置为空数组
+          setResumes([]);
+        }
+        
+        // TODO: 这些数据需要额外的API接口获取
+        // 暂时保留模拟数据，等待对应的API接口
+        setPracticeRecords([
+          { id: 1, title: '算法与数据结构', date: '2024-04-10', score: 85 },
+          { id: 2, title: 'React Hooks详解', date: '2024-04-08', score: 90 }
+        ]);
+        setInterviewRecords([
+          { id: 1, company: '字节跳动', position: '前端开发', date: '2024-04-05', result: '通过' },
+          { id: 2, company: '腾讯', position: '前端开发', date: '2024-03-28', result: '未通过' }
+        ]);
 
-    // 模拟异步获取能力评估评语
-    setCommentLoading(true);
-    setCommentError(null);
-    setTimeout(() => {
-      // 假设接口返回如下内容
-      setComment(
-        '基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n' +
-        '面试通过率较高，具备良好的沟通表达能力。\n' +
-        '建议继续加强高频算法题训练，提升代码优化能力。'
-      );
-      setCommentLoading(false);
-    }, 800);
+        // 模拟异步获取能力评估评语
+        setCommentLoading(true);
+        setCommentError(null);
+        setTimeout(() => {
+          // 假设接口返回如下内容
+          setComment(
+            '基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n' +
+            '面试通过率较高，具备良好的沟通表达能力。\n' +
+            '建议继续加强高频算法题训练，提升代码优化能力。'
+          );
+          setCommentLoading(false);
+        }, 800);
+        
+      } catch (error) {
+        console.error('获取用户资料失败:', error);
+        showToast('获取用户资料失败，请稍后重试');
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfileData();
   }, []);
 
   // 能力评估图表配置（可根据实际数据动态生成）
@@ -145,18 +155,48 @@ export default function ProfilePage() {
   };
 
   // 上传简历
-  const handleResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== 'application/pdf') {
-      showToast('请上传PDF格式的简历');
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg', 'image/png', 'image/bmp', 'image/gif'
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('请上传PDF、Word或图片格式的简历');
       return;
     }
-    // TODO: 上传API
-    showToast('简历上传成功（模拟）');
+    try {
+      showToast('简历识别中...');
+      const result = await recognizeResume(file);
+      if (result.raw) {
+        showToast('识别失败：' + result.raw);
+      } else {
+        showToast('识别成功：' + (result?.msg || JSON.stringify(result).slice(0, 100)));
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast('识别失败：' + (err?.message || '未知错误'));
+    }
   };
 
-  if (!profile) return <div>加载中...</div>;
+  if (profileLoading) return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-b from-purple-100 to-purple-200 flex items-center justify-center">
+        <div className="text-purple-600 text-lg">加载中...</div>
+      </div>
+    </ProtectedRoute>
+  );
+
+  if (!profile) return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-b from-purple-100 to-purple-200 flex items-center justify-center">
+        <div className="text-red-600 text-lg">加载失败，请刷新页面重试</div>
+      </div>
+    </ProtectedRoute>
+  );
 
   return (
     <ProtectedRoute>
@@ -165,15 +205,17 @@ export default function ProfilePage() {
         <div className="container mx-auto px-4 py-8 pt-20">
           {/* 基本信息 */}
           <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col md:flex-row items-center mb-8 border border-purple-200">
-            <img src={profile.avatar} alt="avatar" className="w-24 h-24 rounded-full border-4 border-purple-300 object-cover mr-8" />
+            <img src={profile.avatar || defaultAvatar.src} alt="avatar" className="w-24 h-24 rounded-full border-4 border-purple-300 object-cover mr-8" onError={(e) => {
+              e.currentTarget.src = defaultAvatar.src;
+            }} />
             <div className="flex-1">
               <div className="flex flex-col md:flex-row md:items-center md:space-x-6">
-                <h2 className="text-2xl font-bold text-purple-800">{profile.first_name}{profile.last_name} <span className="text-base text-gray-500 ml-2">({profile.username})</span></h2>
-                <span className="text-sm text-gray-500 mt-2 md:mt-0">注册时间：{profile.date_joined.slice(0, 10)}</span>
-                <span className="text-sm text-gray-500 mt-2 md:mt-0">上次登录：{profile.last_login.slice(0, 10)}</span>
+                <h2 className="text-2xl font-bold text-purple-800">{profile.first_name || ''}{profile.last_name || ''} <span className="text-base text-gray-500 ml-2">({profile.username || '未知用户'})</span></h2>
+                <span className="text-sm text-gray-500 mt-2 md:mt-0">注册时间：{profile.date_joined ? profile.date_joined.slice(0, 10) : '未知'}</span>
+                <span className="text-sm text-gray-500 mt-2 md:mt-0">上次登录：{profile.last_login ? profile.last_login.slice(0, 10) : '未知'}</span>
               </div>
-              <div className="mt-2 text-gray-700">邮箱：{profile.email} | 手机：{profile.phone}</div>
-              <div className="mt-2 text-gray-700">目标职位：{profile.target_position.company_name} - {profile.target_position.position_name} | 期望薪资：{profile.target_position.expected_salary.join('-')}K</div>
+              <div className="mt-2 text-gray-700">邮箱：{profile.email || '未设置'} | 手机：{profile.phone || '未设置'}</div>
+              <div className="mt-2 text-gray-700">目标职位：{profile.target_position?.company_name || '未设置'} - {profile.target_position?.position_name || '未设置'} | 期望薪资：{profile.target_position?.expected_salary ? profile.target_position.expected_salary.join('-') : '未设置'}K</div>
               <div className="mt-4 flex space-x-4">
                 <button className="px-4 py-2 bg-purple-500 text-white rounded-lg shadow hover:bg-purple-600 transition" onClick={() => showToast('完善资料功能开发中~')}>完善/更新资料</button>
                 <label className="px-4 py-2 bg-purple-100 text-purple-700 border border-purple-400 rounded-lg shadow hover:bg-purple-200 transition cursor-pointer">
@@ -189,18 +231,22 @@ export default function ProfilePage() {
             {/* 简历列表 */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200">
               <h3 className="text-xl font-bold text-purple-700 mb-4">我的简历</h3>
-              <ul>
-                {resumes.map(resume => (
-                  <li key={resume.resume_id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                    <div>
-                      <span className="font-semibold text-purple-800">{resume.resume_name}</span>
-                      <span className="ml-4 text-gray-500">{resume.expected_position}</span>
-                      <span className={`ml-4 px-2 py-1 rounded text-xs ${resume.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{resume.completed ? '已完善' : '未完善'}</span>
-                    </div>
-                    <span className="text-xs text-gray-400">更新于 {resume.updated}</span>
-                  </li>
-                ))}
-              </ul>
+              {resumes.length > 0 ? (
+                <ul>
+                  {resumes.map(resume => (
+                    <li key={resume.resume_id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                      <div>
+                        <span className="font-semibold text-purple-800">{resume.resume_name}</span>
+                        <span className="ml-4 text-gray-500">{resume.expected_position}</span>
+                        <span className={`ml-4 px-2 py-1 rounded text-xs ${resume.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{resume.completed ? '已完善' : '未完善'}</span>
+                      </div>
+                      <span className="text-xs text-gray-400">更新于 {resume.updated}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-gray-500 text-center py-4">暂无简历信息</div>
+              )}
             </div>
             {/* 刷题/面试记录Tab */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200">
@@ -263,7 +309,7 @@ export default function ProfilePage() {
                   <span className="text-red-500">{commentError}</span>
                 ) : profile && comment ? (
                   <>
-                    <p>你好，{profile.first_name}{profile.last_name}，根据你的刷题和面试表现，系统对你的能力做出如下评估：</p>
+                    <p>你好，{profile.first_name || ''}{profile.last_name || ''}，根据你的刷题和面试表现，系统对你的能力做出如下评估：</p>
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                       {comment.split('\n').map((line, idx) => (
                         <li key={idx}>{line}</li>
