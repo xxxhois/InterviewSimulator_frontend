@@ -1,7 +1,8 @@
 'use client';
 
-import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { ReactNode, useEffect } from 'react';
+import { showToast } from '@/components/Toast';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,6 +19,12 @@ export const ProtectedRoute = ({
     requireAuth: true, 
     redirectTo 
   });
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      showToast('身份信息未识别，请登录');
+    }
+  }, [isLoading, isAuthenticated]);
 
   if (isLoading) {
     return <>{fallback}</>;

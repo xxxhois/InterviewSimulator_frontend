@@ -1,9 +1,9 @@
 import Providers from '@/components/Providers';
 //import { useAuthStore } from '@/store/authStore';
-import { QueryClient } from '@tanstack/react-query';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 // import { useEffect } from 'react';
+import { ToastProvider } from '@/components/ToastProvider';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,20 +23,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  const queryClient = new QueryClient();
-
-
-
+}) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
           {children}
+          <ToastProvider />
         </Providers>
       </body>
     </html>
