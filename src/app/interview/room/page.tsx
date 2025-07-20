@@ -67,6 +67,7 @@ export default function InterviewPage() {
 
   // 数字人相关状态
   const [isDigitalHumanConnected, setIsDigitalHumanConnected] = useState(false);
+  const [isVideoConnected, setIsVideoConnected] = useState(false);
   const [isDigitalHumanSpeaking, setIsDigitalHumanSpeaking] = useState(false);
   const [digitalHumanText, setDigitalHumanText] = useState('');
   const [streamInfo, setStreamInfo] = useState<any>(null);
@@ -82,6 +83,10 @@ export default function InterviewPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const resampleBufferRef: React.MutableRefObject<number[]> = useRef([]);
+  
+  // 视频帧采集相关ref
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const videoFrameIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // RTCPlayer实例
   const rtcPlayerRef = useRef<InstanceType<typeof RTCPlayer> | null>(null);
@@ -101,12 +106,17 @@ export default function InterviewPage() {
       (videoRef.current as HTMLVideoElement).srcObject = localStream as MediaStream;
     }
     // 连接WebSocket
-    let ws_url = 'ws://localhost:8000/ws/webrtc/';
+    let token = localStorage.getItem('auth_token') || '';
+    console.log('token', token);
+    //let ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+    let ws_url = 'ws://localhost:8000/ws/webrtc/?token=' + token;
+    console.log('ws_url', ws_url);
     const ws = new window.WebSocket(ws_url);
     wsRef.current = ws;
           ws.onopen = () => {
         setIsRecording(true);
         startAudioProcessing();
+        startVideoFrameCapture(); // 启动视频帧采集
         
         // 发送创建流消息
         console.log('发送创建流消息...');
@@ -158,6 +168,9 @@ export default function InterviewPage() {
             text = extractChinese(obj);
           } catch (e) {}
           setQuestion(text || '面试官问题将显示在这里');
+          sendTextToDigitalHuman(text);
+        }else if (data.type === 'connection_established') {
+          setIsVideoConnected(true);
         }
       } catch (e) {
         // 非JSON消息忽略
@@ -165,7 +178,9 @@ export default function InterviewPage() {
     };
     ws.onclose = () => {
       setIsRecording(false);
+      setIsVideoConnected(false); // 重置视频连接状态
       stopAudioProcessing();
+      stopVideoFrameCapture(); // 停止视频帧采集
     };
   };
 
@@ -218,14 +233,90 @@ export default function InterviewPage() {
     }
   }
 
+  // 开始视频帧采集
+  const startVideoFrameCapture = () => {
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('视频元素或画布元素不存在');
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      console.error('无法获取画布上下文');
+      return;
+    }
+
+    // 设置画布尺寸与视频一致
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    console.log(`开始视频帧采集，画布尺寸: ${canvas.width}x${canvas.height}`);
+
+    // 每秒采集一帧视频
+    videoFrameIntervalRef.current = setInterval(() => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        try {
+          // 将视频帧绘制到画布上
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          // 将画布内容转换为blob并发送
+          canvas.toBlob(blob => {
+            if (blob && wsRef.current && wsRef.current.readyState === 1) {
+              const reader = new FileReader();
+              reader.onloadend = function() {
+                try {
+                  const base64data = reader.result?.toString().split(',')[1];
+                  if (base64data) {
+                    wsRef.current?.send(JSON.stringify({
+                      type: 'video_frame', 
+                      frame_data: base64data, 
+                      frame_type: 'keyframe'
+                    }));
+                    console.log('视频帧已发送，大小:', Math.round(base64data.length * 0.75), '字节');
+                  }
+                } catch (error) {
+                  console.error('处理视频帧数据失败:', error);
+                }
+              };
+              reader.onerror = function() {
+                console.error('读取视频帧数据失败');
+              };
+              reader.readAsDataURL(blob);
+            }
+          }, 'image/jpeg', 0.8);
+        } catch (error) {
+          console.error('视频帧采集失败:', error);
+        }
+      } else {
+        console.log('视频未准备好，readyState:', video.readyState);
+      }
+    }, 1000); // 每秒一帧
+
+    console.log('视频帧采集定时器已启动');
+  };
+
+  // 停止视频帧采集
+  const stopVideoFrameCapture = () => {
+    if (videoFrameIntervalRef.current) {
+      clearInterval(videoFrameIntervalRef.current);
+      videoFrameIntervalRef.current = null;
+      console.log('视频帧采集已停止');
+    }
+  };
+
   const stopCollect = () => {
     setIsRecording(false);
+    setIsVideoConnected(false); // 重置视频连接状态
     if (wsRef.current) wsRef.current.close();
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
     stopAudioProcessing();
+    stopVideoFrameCapture(); // 停止视频帧采集
     setTranscript('已停止采集');
   };
 
@@ -632,20 +723,32 @@ export default function InterviewPage() {
 
   // 发送文本给数字人
   const sendTextToDigitalHuman = async (text: string) => {
-    if (!isDigitalHumanConnected) {
-      console.warn('数字人服务未连接');
+    console.log('=== 尝试发送文本给数字人 ===');
+    console.log('文本内容:', text);
+    console.log('数字人连接状态:', isDigitalHumanConnected);
+    console.log('数字人初始化状态:', isDigitalHumanInitializing);
+    console.log('音频激活状态:', isAudioActivated);
+    
+    // 检查文本是否有效
+    if (!text || text.trim() === '') {
+      console.warn('文本内容为空，跳过发送');
       return;
     }
+
+    // 移除连接状态检查，直接尝试发送
+    console.log('直接尝试发送文本给数字人，不检查连接状态');
 
     try {
       const request: DigitalHumanRequest = {
         text,
         voiceConfig: {
-          vcn: "x4_mingge"
+          vcn: "x4_xiaoyu"
         }
       };
 
+      console.log('发送请求给数字人:', request);
       await digitalHumanService.current.textToSpeech(request);
+      console.log('发送文本给数字人成功');
       setDigitalHumanText(text);
     } catch (error) {
       console.error('发送文本给数字人失败:', error);
@@ -682,6 +785,7 @@ export default function InterviewPage() {
     
     return () => {
       stopCollect();
+      stopVideoFrameCapture(); // 确保停止视频帧采集
       // 关闭数字人服务
       digitalHumanService.current.disconnect();
       // 关闭RTCPlayer
@@ -900,9 +1004,9 @@ export default function InterviewPage() {
             <span className={`ml-2 px-2 py-1 rounded text-xs ${isDigitalHumanConnected ? 'bg-green-600' : isDigitalHumanInitializing ? 'bg-yellow-600' : 'bg-red-600'}`}>
               {isDigitalHumanConnected ? '已连接' : isDigitalHumanInitializing ? '连接中...' : '未连接'}
             </span>
-            <span className={`ml-2 px-2 py-1 rounded text-xs ${isAudioActivated ? 'bg-blue-600' : 'bg-yellow-600'}`}>
+            {/* <span className={`ml-2 px-2 py-1 rounded text-xs ${isAudioActivated ? 'bg-blue-600' : 'bg-yellow-600'}`}>
               {isAudioActivated ? '音频已激活' : '音频未激活'}
-            </span>
+            </span> */}
           </div>
           
           {/* RTCPlayer容器 */}
@@ -952,14 +1056,15 @@ export default function InterviewPage() {
           
           {/* 数字人控制区域 */}
           <div className="w-full space-y-2 mb-4">
-            <div className="text-xs text-gray-400 mb-1">数字人文本</div>
+            {/* <div className="text-xs text-gray-400 mb-1">数字人文本</div>
             <textarea
               className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white resize-none h-16"
               value={digitalHumanText}
               onChange={(e) => setDigitalHumanText(e.target.value)}
               placeholder="输入要转换为语音的文本..."
-            />
-            <div className="flex space-x-2">
+            /> */}
+            <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{digitalHumanText}</div>
+            {/* <div className="flex space-x-2">
               <button
                 className={`px-3 py-1 rounded text-xs font-medium ${
                   isDigitalHumanConnected && isAudioActivated
@@ -994,13 +1099,18 @@ export default function InterviewPage() {
               >
                 测试音频
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
 
         {/* 面试者视频块 */}
         <div className="flex flex-col items-center justify-center w-full max-w-[400px] mx-auto" style={{ maxHeight: '40vh' }}>
-          <div className="text-center text-xs text-gray-400 mb-2">面试者</div>
+          <div className="text-center text-xs text-gray-400 mb-2">
+            面试者
+            <span className={`ml-2 px-2 py-1 rounded text-xs ${isVideoConnected ? 'bg-green-600' : 'bg-red-600'}`}>
+              {isVideoConnected ? '已连接' : '未连接'}
+            </span>
+          </div>
           <div className="bg-black w-full aspect-square rounded-md flex flex-col items-center justify-center text-3xl relative min-w-[120px] min-h-[120px] max-w-[400px] max-h-[40vh]">
             <video
               ref={videoRef}
@@ -1012,20 +1122,27 @@ export default function InterviewPage() {
             />
             {!isRecording && <span className="z-10"></span>}
           </div>
+          {/* 隐藏的canvas用于视频帧采集 */}
+          <canvas
+            ref={canvasRef}
+            style={{ display: 'none' }}
+            width="640"
+            height="480"
+          />
           <div className="mt-2 flex space-x-2 justify-center">
             <button
               className={`px-3 py-1 rounded text-sm font-medium ${isRecording ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
               onClick={startCollect}
               disabled={isRecording}
             >
-              开始采集
+              开启摄像头
             </button>
             <button
               className={`px-3 py-1 rounded text-sm font-medium ${!isRecording ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
               onClick={stopCollect}
               disabled={!isRecording}
             >
-              停止采集
+              关闭摄像头
             </button>
           </div>
           <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{transcript}</div>
