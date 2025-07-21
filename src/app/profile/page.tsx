@@ -1,14 +1,14 @@
 'use client';
 
-import { getProfile, updateProfile } from '@/api/profile';
+import { getProfile } from '@/api/profile';
 import { recognizeResume } from '@/api/resume';
+import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { showToast } from '@/components/Toast';
 import { Profile } from '@/types/profile';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import defaultAvatar from '@/assets/企鹅.jpg';
 
 // 动态导入echarts组件
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -34,10 +34,10 @@ export default function ProfilePage() {
         setProfile(profileData);
         
         // 从profile中提取简历信息
-        if (profileData.resume) {
+        if (profileData.resume && profileData.resume.resume_id) {
           setResumes([
             {
-              resume_id: profileData.resume.resume_id || 0,
+              resume_id: profileData.resume.resume_id,
               resume_name: profileData.resume.resume_name || '未命名简历',
               expected_position: profileData.resume.expected_position || '未设置',
               completed: profileData.resume.completed || false,
@@ -45,7 +45,7 @@ export default function ProfilePage() {
             }
           ]);
         } else {
-          // 如果没有简历信息，设置为空数组
+          // 如果没有简历信息或resume_id为空，设置为空数组
           setResumes([]);
         }
         
@@ -245,7 +245,7 @@ export default function ProfilePage() {
                   ))}
                 </ul>
               ) : (
-                <div className="text-gray-500 text-center py-4">暂无简历信息</div>
+                <div className="text-gray-500 text-center py-4">还没有简历</div>
               )}
             </div>
             {/* 刷题/面试记录Tab */}

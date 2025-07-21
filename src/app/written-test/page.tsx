@@ -1,6 +1,6 @@
 'use client';
 
-import { runCode } from '@/api/test';
+import { runCode } from '@/api/code';
 import Editor from '@monaco-editor/react';
 import { useState } from 'react';
 

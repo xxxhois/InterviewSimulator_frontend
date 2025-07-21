@@ -1,27 +1,37 @@
 'use client';
 
+import { createInterview } from '@/api/interview';
+import { getResumeList } from '@/api/resume';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-// mock 数据，后续可替换为接口
-const mockPositions = [
-  { id: '1', name: '前端开发工程师' },
-  { id: '2', name: '后端开发工程师' },
-  { id: '3', name: '算法工程师' },
-];
-
-// 假设有无简历/职位的判断，实际可用接口替换
-const hasResume = true; // TODO: 替换为实际判断
-const hasPosition = mockPositions.length > 0;
+// mock 岗位接口
+const getJobPositionList = async () => {
+  // TODO: 替换为实际接口
+  return [
+    { id: 1, company_name: '字节跳动', position_name: '前端开发工程师', position_type: '全职', position_description: '负责Web前端开发' },
+    { id: 2, company_name: '腾讯', position_name: '后端开发工程师', position_type: '全职', position_description: '负责后端服务开发' },
+    { id: 3, company_name: '阿里巴巴', position_name: '算法工程师', position_type: '全职', position_description: '负责算法研发' },
+  ];
+};
 
 export default function InterviewBookingPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'now' | 'reserve'>('now');
   const [reserveTime, setReserveTime] = useState('');
-  const [position, setPosition] = useState('');
+  const [jobPositions, setJobPositions] = useState<any[]>([]);
+  const [resumes, setResumes] = useState<any[]>([]);
+  const [selectedPosition, setSelectedPosition] = useState('');
+  const [selectedResume, setSelectedResume] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 校验预约时间不能早于当前时间
+  useEffect(() => {
+    // 获取岗位列表
+    getJobPositionList().then(setJobPositions);
+    // 获取简历列表
+    getResumeList().then(res => setResumes(res.resumes || []));
+  }, []);
+
   const isReserveTimeValid = () => {
     if (mode !== 'reserve') return true;
     if (!reserveTime) return false;
@@ -30,24 +40,49 @@ export default function InterviewBookingPage() {
     return selected.getTime() > now.getTime();
   };
 
-  // 校验
-  const canSubmit = (mode === 'now' || (mode === 'reserve' && reserveTime && isReserveTimeValid())) && position && hasResume && hasPosition && !submitting;
+  const canSubmit = (mode === 'now' || (mode === 'reserve' && reserveTime && isReserveTimeValid())) && selectedPosition && selectedResume && !submitting;
 
-  // 提交处理（预留接口）
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
+    if (mode === 'reserve' && !isReserveTimeValid()) {
+      // @ts-ignore
+      window.toast && window.toast('预约时间必须晚于当前时间', { type: 'error' });
+      return;
+    }
     setSubmitting(true);
-    // TODO: 调用预约接口
-    setTimeout(() => {
+    const position = jobPositions.find(p => String(p.id) === selectedPosition);
+    const resume = resumes.find(r => String(r.resume_id) === selectedResume);
+    if (!position || !resume) {
       setSubmitting(false);
-      alert('预约成功！');
-      // 跳转到面试房间或其他页面
-      // router.push('/interview/room');
-    }, 1000);
+      // @ts-ignore
+      window.toast && window.toast('请选择岗位和简历', { type: 'error' });
+      return;
+    }
+    const params = {
+      job_position_id: position.id,
+      resume_id: resume.resume_id,
+      interview_time: mode === 'reserve' ? reserveTime : undefined,
+      position_name: position.position_name,
+      position_type: position.position_type,
+      company_name: position.company_name,
+      position_description: position.position_description,
+    };
+    try {
+      const res = await createInterview(params);
+      setSubmitting(false);
+      // @ts-ignore
+      window.toast && window.toast('预约成功！', { type: 'success' });
+      if (mode === 'now' && res && res.id) {
+        router.push(`/interview/room?id=${res.id}`);
+      }
+    } catch (err: any) {
+      setSubmitting(false);
+      // @ts-ignore
+      window.toast && window.toast(err.message || '预约失败', { type: 'error' });
+    }
   };
 
-  // 跳转去简历模块
   const goToResume = () => router.push('/resume');
 
   return (
@@ -88,30 +123,42 @@ export default function InterviewBookingPage() {
             )}
           </div>
 
-          {/* 目标职位选择 */}
+          {/* 目标岗位选择 */}
           <div>
-            <label className="block text-gray-300 font-semibold mb-2">目标职位</label>
-            {hasPosition ? (
-              <select
-                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                value={position}
-                onChange={e => setPosition(e.target.value)}
-                required
-              >
-                <option value="">请选择目标职位</option>
-                {mockPositions.map(pos => (
-                  <option key={pos.id} value={pos.id}>{pos.name}</option>
-                ))}
-              </select>
-            ) : (
-              <div className="text-red-400 text-sm">暂无可选职位，请先创建职位。</div>
-            )}
+            <label className="block text-gray-300 font-semibold mb-2">目标岗位</label>
+            <select
+              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              value={selectedPosition}
+              onChange={e => setSelectedPosition(e.target.value)}
+              required
+            >
+              <option value="">请选择目标岗位</option>
+              {jobPositions.map(pos => (
+                <option key={pos.id} value={pos.id}>{pos.company_name} - {pos.position_name}</option>
+              ))}
+            </select>
           </div>
 
-          {/* 简历/职位缺失提示与跳转 */}
-          {(!hasResume || !hasPosition) && (
+          {/* 简历选择 */}
+          <div>
+            <label className="block text-gray-300 font-semibold mb-2">选择简历</label>
+            <select
+              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              value={selectedResume}
+              onChange={e => setSelectedResume(e.target.value)}
+              required
+            >
+              <option value="">请选择简历</option>
+              {resumes.map(resume => (
+                <option key={resume.resume_id} value={resume.resume_id}>{resume.resume_name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 简历缺失提示与跳转 */}
+          {(!resumes.length) && (
             <div className="bg-yellow-900/60 border border-yellow-700 text-yellow-200 rounded p-3 flex items-center justify-between">
-              <span>请先完善简历和目标职位</span>
+              <span>简历未创建，请先创建简历</span>
               <button
                 type="button"
                 className="ml-4 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"

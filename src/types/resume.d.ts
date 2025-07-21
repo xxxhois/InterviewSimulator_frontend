@@ -1,6 +1,7 @@
 // 简历基本信息
 export type ResumeBasic = {
-  id: number;
+  resume_id?: number;
+  resume_name?: string;
   name: string;
   age: number;
   graduation_date: string;
@@ -57,4 +58,20 @@ export type Resume = ResumeBasic & {
   project_experiences: ProjectExperience[];
   education_experiences: EducationExperience[];
   custom_sections: CustomSection[];
+};
+
+// 简历列表项类型
+export type ResumeListItem = {
+  resume_id: number;
+  resume_name: string;
+  expected_position: string;
+  updated_at: string;
+  completed: boolean;
+};
+
+// 简历列表返回类型
+export type ResumeList = {
+  success: boolean;
+  resumes: ResumeListItem[];
+  total: number;
 };

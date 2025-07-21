@@ -1,7 +1,7 @@
 'use client';
 
+import { runCode } from '@/api/code';
 import { createDigitalHuman, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
-import { runCode } from '@/api/test';
 import { RTCPlayer } from '@/lib/rtcplayer';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
@@ -56,6 +56,8 @@ function downsampleBuffer(buffer: Float32Array, sampleRate: number, outRate: num
 }
 
 export default function InterviewPage() {
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const interview_id = searchParams ? searchParams.get('id') : null;
   // 代码内容、语言、弹窗状态
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('plaintext');
@@ -123,6 +125,7 @@ export default function InterviewPage() {
         ws.send(JSON.stringify({
           "type": "create_stream",
           "title": "面试视频流",
+          "interview_id": interview_id,
           "description": "实时面试"
         }));
       };

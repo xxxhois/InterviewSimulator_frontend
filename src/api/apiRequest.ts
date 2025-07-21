@@ -78,6 +78,7 @@ export async function apiRequest({ method, url, data, headers = {}, attachToken 
     
     // 自动获取token
     const token = interceptedOptions.attachToken ? await getToken() : null;
+    console.log('🚀 Token:', token);
     const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),

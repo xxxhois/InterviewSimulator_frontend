@@ -38,13 +38,13 @@ export async function runCode(source_code: string, language_id: number, stdin: s
   });
 }
 
-// 4. 获取支持的语言列表
-export async function getLanguages() {
-  return await apiRequest({
-    method: 'GET',
-    url: '/code/languages/',
-  });
-}
+// // 4. 获取支持的语言列表
+// export async function getLanguages() {
+//   return await apiRequest({
+//     method: 'GET',
+//     url: '/code/languages/',
+//   });
+// }
 
 // 5. 获取题目的测试用例
 export async function getTestCases(problemId: number) {

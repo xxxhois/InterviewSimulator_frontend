@@ -1,61 +1,72 @@
 'use client';
 
-import robot from '@/assets/robot.json';
-import workingPerson from '@/assets/working_person.json';
+import AIbot from '@/assets/AIbot.json';
+import programming from '@/assets/programming.json';
+import Navigation from '@/components/Navigation';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Player } from '@lottiefiles/react-lottie-player';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
-import Navigation from '@/components/Navigation';
 
 // 动态导入echarts组件以避免SSR问题
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
-const features = [
-  {
-    title: 'AI数字人视频面试',
-    description: '选择不同风格的数字人面试官，模拟真实场景，提升应对能力。',
-    animation: robot,
-    position: 'md:col-span-1',
-    route: '/interview/start',
-    bgColor: 'bg-white border-2 border-purple-400',
-    shadowColor: 'shadow-purple-500/30',
-    icon: '🎥',
-    textColor: 'text-purple-800',
-  },
-  {
-    title: '专项练习题库',
-    description: '针对八股、项目、代码等问题进行专项练习，在线评测',
-    animation: workingPerson,
-    position: 'md:col-span-1',
-    route: '/interview/special',
-    bgColor:'bg-gradient-to-br from-purple-300 to-purple-500',
-    shadowColor: 'shadow-purple-200/30',
-    icon: '📚',
-  },
-  {
-    title: '简历上传与修改',
-    description: '智能分析简历，提供优化建议，一键生成多版本简历。',
-    animation: workingPerson,
-    position: 'md:col-span-1',
-    route: '/resume',
-    bgColor: 'bg-gradient-to-br from-purple-300 to-purple-500',
-    shadowColor: 'shadow-purple-400/30',
-    icon: '📄',
-  },
-  {
-    title: '交流社区',
-    description: '交流学习经验，分享学习资源，与同行一起成长。',
-    animation: robot,
-    position: 'md:col-span-1',
-    bgColor: 'bg-white border-2 border-purple-400',
-    shadowColor: 'shadow-purple-200/30',
-    icon: '🎯',
-    textColor: 'text-purple-800',
-  },
+  const features: Array<{
+    title: string;
+    description: string;
+    position: string;
+    route?: string;
+    bgColor: string;
+    shadowColor: string;
+    textColor?: string;
+    type: 'animation' | 'icon';
+    animation?: any;
+    icon?: string;
+  }> = [
+    {
+      title: 'AI数字人视频面试',
+      description: '选择不同风格的数字人面试官，模拟真实场景，提升应对能力。',
+      animation: AIbot,
+      position: 'md:col-span-1',
+      route: '/interview/book',
+      bgColor: 'bg-white border-2 border-purple-400',
+      shadowColor: 'shadow-purple-500/30',
+      textColor: 'text-purple-800',
+      type: 'animation'
+    },
+    {
+      title: '专项练习题库',
+      description: '针对八股、项目、代码等问题进行专项练习，在线评测',
+      animation: programming,
+      position: 'md:col-span-1',
+      route: '/written-test',
+      bgColor:'bg-gradient-to-br from-purple-300 to-purple-500',
+      shadowColor: 'shadow-purple-200/30',
+      type: 'animation'
+    },
+    {
+      title: '简历上传与修改',
+      description: '智能分析简历，提供优化建议，一键生成多版本简历。',
+      icon: '📄',
+      position: 'md:col-span-1',
+      route: '/resume',
+      bgColor: 'bg-gradient-to-br from-purple-300 to-purple-500',
+      shadowColor: 'shadow-purple-400/30',
+      type: 'icon'
+    },
+      {
+      title: '交流社区',
+      description: '交流学习经验，分享学习资源，与同行一起成长。',
+
+      position: 'md:col-span-1',
+      bgColor: 'bg-white border-2 border-purple-400',
+      shadowColor: 'shadow-purple-200/30',
+      textColor: 'text-purple-800',
+      type: 'animation'
+    },
 ];
 
 // 热门题库数据
@@ -376,18 +387,17 @@ const MainDashboard = () => {
             {features.slice(0, 3).map((feature, index) => (
               <motion.div
                 key={index}
-                className={`${feature.bgColor} rounded-2xl p-4 shadow-lg ${feature.shadowColor} hover:shadow-xl transition-all duration-500 cursor-pointer transform hover:scale-105 hover:-translate-y-1 border border-purple-200/20`}
+                className={`${feature.bgColor} rounded-2xl p-4 shadow-lg ${feature.shadowColor} hover:shadow-xl transition-all duration-500 cursor-pointer transform hover:-translate-y-0.5 border border-purple-200/20`}
                 onClick={() => router.push(feature.route!)}
                 whileHover={{ 
-                  y: -3,
-                  scale: 1.01,
-                  boxShadow: "0 20px 40px -12px rgba(139, 92, 246, 0.25)"
+                  y: -1,
+                  scale: 1.002,
+                  boxShadow: "0 8px 16px -6px rgba(139, 92, 246, 0.15)"
                 }}
-                whileTap={{ scale: 0.98 }}
+                whileTap={{ scale: 0.99 }}
               >
                 <div className="flex flex-col h-full">
                   <div className="flex items-center mb-3">
-                    <span className="text-2xl mr-2">{feature.icon}</span>
                     <h2 className={`text-lg font-bold ${feature.textColor || 'text-white'}`}>
                       {feature.title}
                     </h2>
@@ -396,12 +406,19 @@ const MainDashboard = () => {
                     {feature.description}
                   </p>
                   <div className="flex justify-center">
-                    <Player
-                      autoplay
-                      loop
-                      src={feature.animation}
-                      style={{ height: '80px', width: '80px' }}
-                    />
+                    {feature.type === 'animation' ? (
+                      <Player
+                        autoplay
+                        loop
+                        src={feature.animation}
+                        style={{ height: '100px', width: '100px' }}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-6xl mb-2">{feature.icon}</span>
+                        <div className="w-16 h-1 bg-white/30 rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -415,7 +432,6 @@ const MainDashboard = () => {
             >
                           <div className="flex flex-col h-full">
                 <div className="flex items-center mb-4">
-                  <span className="text-3xl mr-3">{features[3].icon}</span>
                   <h2 className={`text-xl font-bold ${features[3].textColor || 'text-white'}`}>
                     {features[3].title}
                   </h2>
@@ -424,12 +440,19 @@ const MainDashboard = () => {
                   {features[3].description}
                 </p>
                 <div className="flex justify-center">
-                  <Player
-                    autoplay
-                    loop
-                    src={features[3].animation}
-                    style={{ height: '120px', width: '120px' }}
-                  />
+                  {features[3].type === 'animation' ? (
+                    <Player
+                      autoplay
+                      loop
+                      src={features[3].animation}
+                      style={{ height: '120px', width: '120px' }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <span className="text-6xl mb-2">{features[3].icon}</span>
+                      <div className="w-16 h-1 bg-white/30 rounded-full"></div>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
