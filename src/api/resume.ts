@@ -57,18 +57,19 @@ export async function recognizeResume(file: File): Promise<any> {
 export const getResumeList = async (): Promise<ResumeList> => {
   const response = await apiRequest({
     method: "GET",
-    url: "/users/resumes/list/",
+    url: "/users/resume/list/",
   });
   return response;
 };
 
-// 获取简历详情
-export const getResumeDetail = async (resume_id: number) => {
-  return await apiRequest({
-    method: 'GET',
-    url: `/users/resumes?resume_id=${resume_id}`,
-  });
-};
+  // 获取简历详情
+  export const getResumeDetail = async (resume_id: number) => {
+    const response = await apiRequest({
+      method: 'GET',
+      url: `/users/resume/?resume_id=${resume_id}`,
+    });
+    return response.resume;
+  };
 
 /**
  * 创建或更新简历基本信息

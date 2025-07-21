@@ -1,0 +1,590 @@
+'use client';
+import {
+  createOrUpdateResume,
+  createOrUpdateWorkExperience,
+  deleteWorkExperience,
+  getResumeDetail,
+  getResumeList
+} from '@/api/resume';
+import Navigation from '@/components/Navigation';
+import { showToast } from '@/components/Toast';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+
+const emptyForm = {
+  resume_name: '',
+  real_name: '',
+  age: '',
+  graduation_date: '',
+  education_level: '',
+  expected_position: '',
+};
+
+export default function ResumePage() {
+  const [resumeList, setResumeList] = useState<any[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<number | null>(null);
+  const [formBasic, setFormBasic] = useState({ ...emptyForm });
+  const [basicSubmitted, setBasicSubmitted] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [showSmartSidebar, setShowSmartSidebar] = useState(false);
+  const [workExperiences, setWorkExperiences] = useState<any[]>([]);
+  const [projectExperiences, setProjectExperiences] = useState<any[]>([]);
+  const [educationExperiences, setEducationExperiences] = useState<any[]>([]);
+  const [customSections, setCustomSections] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  // 其他分区略，实际可用 useState 管理
+
+  // const mockResumeList = [
+  //   { resume_id: 1, resume_name: '简历1' },
+  //   { resume_id: 2, resume_name: '简历2' },
+  // ];
+  //获取简历列表
+  useEffect(() => {
+    getResumeList().then(res => {
+      setResumeList(res.resumes || []);
+      if (res.resumes && res.resumes.length > 0) setSelectedResumeId(res.resumes[0].resume_id);
+    });
+  }, []);
+  // useEffect(() => {
+  //   setResumeList(mockResumeList);
+  //   if (mockResumeList && mockResumeList.length > 0) setSelectedResumeId(mockResumeList[0].resume_id);
+  // }, []);
+
+  // 切换简历时拉取详情
+  useEffect(() => {
+    if (!selectedResumeId) {
+      setFormBasic({ ...emptyForm });
+      setBasicSubmitted(false);
+      setWorkExperiences([]);
+      return;
+    }
+    setIsLoading(true);
+    console.log('拉取简历详情',selectedResumeId)
+    getResumeDetail(selectedResumeId).then(detail => {
+      console.log('detail',detail)
+      const basicData = {
+        resume_name: detail.resume_name || '',
+        age: detail.age !== undefined && detail.age !== null ? String(detail.age) : '',
+        graduation_date: detail.graduation_date || '',
+        education_level: detail.education_level || '',
+        expected_position: detail.expected_position || '',
+        real_name: detail.name || '',
+      };
+      console.log('setFormBasic 填充值:', basicData);
+      setFormBasic(basicData); 
+      setWorkExperiences(detail.work_experiences || []);
+      setProjectExperiences(detail.project_experiences || []);
+      setEducationExperiences(detail.education_experiences || []);
+      setCustomSections(detail.custom_sections || []);
+      setBasicSubmitted(true);
+      setIsLoading(false);
+    });
+  }, [selectedResumeId]);
+
+  // 新建简历
+  const handleCreateNew = () => {
+    setSelectedResumeId(null);
+    setFormBasic({ ...emptyForm });
+    setBasicSubmitted(false);
+    setIsCreating(true);
+  };
+
+  // 提交基本信息
+  const handleBasicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formBasic.resume_name) {
+      showToast('简历名称必须填写');
+      return;
+    }
+    // 创建或更新简历
+    try {
+      const res = await createOrUpdateResume({
+        resume_id: selectedResumeId || undefined,
+        resume_name: formBasic.resume_name,
+        name: formBasic.real_name,//兼容旧接口name
+        age: Number(formBasic.age),
+        graduation_date: formBasic.graduation_date,
+        education_level: formBasic.education_level,
+        expected_position: formBasic.expected_position,
+        completed: !!( formBasic.age && formBasic.graduation_date && formBasic.education_level && formBasic.expected_position),
+      });
+      showToast('基础信息已保存');
+      setBasicSubmitted(true);
+      setIsCreating(false);
+      // 新建后刷新列表并选中新建项
+      getResumeList().then(resList => {
+        setResumeList(resList.resumes || []);
+        if (resList.resumes && resList.resumes.length > 0) {
+          setSelectedResumeId(resList.resumes[resList.resumes.length - 1].resume_id);
+        }
+      });
+    } catch (err) {
+      showToast('保存失败');
+    }
+  };
+
+  const handleWorkChange = (idx: number, key: string, value: any) => {
+    setWorkExperiences(prev => {
+      const newList = [...prev];
+      newList[idx] = { ...newList[idx], [key]: value };
+      return newList;
+    });
+  };
+  
+  const handleAddWork = () => {
+    setWorkExperiences(prev => [
+      ...prev,
+      {
+        company_name: '',
+        department: '',
+        position: '',
+        is_internship: false,
+        start_date: '',
+        end_date: '',
+        work_content: '',
+      },
+    ]);
+  };
+
+  const handleDeleteWork = (idx: number) => {
+    if (!selectedResumeId) {
+      showToast('请先提交基本信息');
+      return;
+    }
+    const work = workExperiences[idx];
+    console.log('work',work)
+    // 如果该工作经历有 work_id，说明已保存过，才调用删除接口
+    if (work.id) {
+      deleteWorkExperience({
+        resume_id: selectedResumeId,
+        work_id: work.id,
+      });
+    }
+    setWorkExperiences(prev => prev.filter((_, i) => i !== idx));
+  };
+  
+  const handleSaveSingleWork = async (idx: number) => {
+    if (!selectedResumeId) {
+      showToast('请先新建或选择一份简历');
+      return;
+    }
+    const exp = workExperiences[idx];
+    try {
+      await createOrUpdateWorkExperience({
+        resume_id: selectedResumeId,
+        work_id: exp.id,
+        start_date: exp.start_date,
+        end_date: exp.end_date,
+        company_name: exp.company_name,
+        department: exp.department,
+        position: exp.position,
+        work_content: exp.work_content,
+        is_internship: exp.is_internship,
+      });
+      showToast('工作经历已保存');
+    } catch (err) {
+      showToast('保存失败');
+    }
+  };
+
+  // 上传附件（解析接口预留）
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    showToast('解析功能开发中...');
+  };
+
+  // 卡片分区折叠
+  const [openSections, setOpenSections] = useState<string[]>(['basic']);
+  const toggleSection = (key: string) => {
+    setOpenSections(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const [showAllResumes, setShowAllResumes] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-purple-200 flex flex-col">
+      <Navigation />
+      <div className="flex-1 flex flex-col items-center w-full pt-16">
+        {/* 顶部简历卡片横向列表 */}
+        <div className="w-full max-w-7xl mx-auto px-4 pt-8 pb-4 flex items-center gap-4 overflow-x-auto scrollbar-hide">
+          {(() => {
+            const maxShow = 3;
+            const showList = showAllResumes ? resumeList : resumeList.slice(0, maxShow);
+            return <>
+              {showList.map(r => (
+                <motion.button
+                  key={r.resume_id}
+                  className={`min-w-[200px] px-8 py-5 rounded-2xl border-2 transition-all font-bold shadow-md flex-shrink-0 ${selectedResumeId === r.resume_id ? 'border-purple-500 bg-purple-50 text-purple-700 scale-105' : 'border-purple-200 bg-white text-gray-700 hover:border-purple-400 hover:bg-purple-100'}`}
+                  whileHover={{ scale: 1.07 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setSelectedResumeId(r.resume_id); setIsCreating(false); }}
+                >
+                  {r.resume_name}
+                </motion.button>
+              ))}
+              {resumeList.length > maxShow && !showAllResumes && (
+                <motion.button
+                  className="min-w-[120px] px-4 py-4 rounded-2xl border-2 border-dashed border-purple-300 bg-white text-purple-400 font-bold shadow-md flex-shrink-0 hover:border-purple-500 hover:text-purple-600 transition-all"
+                  whileHover={{ scale: 1.07 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowAllResumes(true)}
+                >
+                  更多
+                </motion.button>
+              )}
+              <motion.button
+                className="min-w-[180px] px-6 py-4 rounded-2xl border-2 border-dashed border-purple-300 bg-white text-purple-400 font-bold shadow-md flex-shrink-0 hover:border-purple-500 hover:text-purple-600 transition-all"
+                whileHover={{ scale: 1.07 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleCreateNew}
+              >
+                + 新建简历
+              </motion.button>
+              {resumeList.length > maxShow && showAllResumes && (
+                <motion.button
+                  className="min-w-[120px] px-4 py-4 rounded-2xl border-2 border-dashed border-purple-300 bg-white text-purple-400 font-bold shadow-md flex-shrink-0 hover:border-purple-500 hover:text-purple-600 transition-all"
+                  whileHover={{ scale: 1.07 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowAllResumes(false)}
+                >
+                  收起
+                </motion.button>
+              )}
+            </>;
+          })()}
+        </div>
+
+        {/* 主内容两栏布局 */}
+        <div className="w-full max-w-7xl mx-auto px-4 pb-12 flex gap-10">
+          {/* 主卡片 */}
+          <motion.div layout className="flex-1 bg-white rounded-2xl shadow-xl border border-purple-200 p-12 mt-2">
+            {/* 分区卡片折叠/展开 */}
+            {/* 基本信息 */}
+            <motion.section layout className="mb-6">
+              <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('basic')}>
+                <h2 className="text-lg font-bold text-purple-700">基本信息</h2>
+                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+              </motion.div>
+              <AnimatePresence>
+                {openSections.includes('basic') && !isLoading && (
+                  <motion.form
+                    key="basic"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="pt-4"
+                    onSubmit={handleBasicSubmit}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">简历名称 <span className="text-red-500">*</span></label>
+                        <input
+                          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                          value={formBasic.resume_name}
+                          onChange={e => setFormBasic({ ...formBasic, resume_name: e.target.value })}
+                          required
+                          disabled={basicSubmitted && !isCreating}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">姓名 <span className="text-red-500">*</span></label>
+                        <input
+                          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                          value={formBasic.real_name || ''}
+                          onChange={e => setFormBasic({ ...formBasic, real_name: e.target.value })}
+                          required
+                          disabled={basicSubmitted && !isCreating}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">年龄</label>
+                        <input
+                          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                          value={formBasic.age}
+                          onChange={e => setFormBasic({ ...formBasic, age: e.target.value })}
+                          disabled={basicSubmitted && !isCreating}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">毕业时间</label>
+                        <input
+                          type="date"
+                          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                          value={formBasic.graduation_date}
+                          onChange={e => setFormBasic({ ...formBasic, graduation_date: e.target.value })}
+                          disabled={basicSubmitted && !isCreating}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">学历</label>
+                        <select
+                          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                          value={formBasic.education_level}
+                          onChange={e => setFormBasic({ ...formBasic, education_level: e.target.value })}
+                          disabled={basicSubmitted && !isCreating}
+                        >
+                          <option value="">请选择学历</option>
+                          <option value="高中及以下">高中及以下</option>
+                          <option value="大专">大专</option>
+                          <option value="本科">本科</option>
+                          <option value="硕士">硕士</option>
+                          <option value="博士">博士</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">期望职位</label>
+                        <input
+                          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                          value={formBasic.expected_position}
+                          onChange={e => setFormBasic({ ...formBasic, expected_position: e.target.value })}
+                          disabled={basicSubmitted && !isCreating}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <button type="submit" className="bg-purple-600 text-white px-6 py-2 rounded font-bold" disabled={basicSubmitted && !isCreating}>提交基本信息</button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+            </motion.section>
+            {/* 其他分区 */}
+            <motion.section layout className="mb-6">
+              <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('work')}>
+                <h2 className="text-lg font-bold text-purple-700">工作经历</h2>
+                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+              </motion.div>
+              <AnimatePresence>
+                {openSections.includes('work') && !isLoading && (
+                  <motion.div
+                    key="work"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="pt-4 text-gray-400"
+                  >
+                    {workExperiences.map((exp, idx) => (
+                    <div key={exp.id || idx} className="mb-6 p-4 border rounded-lg bg-white shadow-sm relative">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">公司名称</label>
+                            <input
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.company_name}
+                            onChange={e => handleWorkChange(idx, 'company_name', e.target.value)}
+                            placeholder="请输入公司名称"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">部门</label>
+                            <input
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.department}
+                            onChange={e => handleWorkChange(idx, 'department', e.target.value)}
+                            placeholder="请输入部门"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">职位</label>
+                            <input
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.position}
+                            onChange={e => handleWorkChange(idx, 'position', e.target.value)}
+                            placeholder="请输入职位"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">实习经历</label>
+                            <select
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.is_internship ? 'true' : 'false'}
+                            onChange={e => handleWorkChange(idx, 'is_internship', e.target.value === 'true')}
+                            >
+                            <option value="false">否</option>
+                            <option value="true">是</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">开始时间</label>
+                            <input
+                            type="date"
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.start_date}
+                            onChange={e => handleWorkChange(idx, 'start_date', e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">结束时间</label>
+                            <input
+                            type="date"
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.end_date}
+                            onChange={e => handleWorkChange(idx, 'end_date', e.target.value)}
+                            />
+                        </div>
+                        </div>
+                        <div className="mt-4">
+                        <label className="block text-sm font-medium mb-1">工作内容</label>
+                        <textarea
+                            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-500 shadow-sm"
+                            value={exp.work_content}
+                            onChange={e => handleWorkChange(idx, 'work_content', e.target.value)}
+                            placeholder="请简要描述主要工作内容"
+                            rows={3}
+                        />
+                        </div>
+                        <div className="flex justify-end mt-2">
+                            <button
+                                type="button"
+                                className="bg-purple-500 text-white px-4 py-1 rounded font-bold hover:bg-purple-600"
+                                onClick={() => handleSaveSingleWork(idx)}
+                            >
+                                保存本条
+                            </button>
+                        </div>
+                        <button
+                        type="button"
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                        onClick={() => handleDeleteWork(idx)}
+                        title="删除该工作经历"
+                        >
+                        删除
+                        </button>
+                    </div>
+                    ))}
+                    <button
+                    type="button"
+                    className="bg-purple-100 text-purple-700 px-4 py-2 rounded font-bold hover:bg-purple-200"
+                    onClick={handleAddWork}
+                    >
+                    + 添加工作经历
+                    </button>
+                    {/* <button
+                    type="button"
+                    className="bg-purple-600 text-white px-6 py-2 rounded font-bold mt-2 ml-4"
+                    onClick={handleWorkSubmit}
+                    >
+                    保存工作经历
+                    </button> */}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.section>
+            <motion.section layout className="mb-6">
+              <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('project')}>
+                <h2 className="text-lg font-bold text-purple-700">项目经历</h2>
+                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+              </motion.div>
+              <AnimatePresence>
+                {openSections.includes('project') && (
+                  <motion.div
+                    key="project"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="pt-4 text-gray-400"
+                  >
+                    （此处可编辑项目经历...）
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.section>
+            <motion.section layout className="mb-6">
+              <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('edu')}>
+                <h2 className="text-lg font-bold text-purple-700">教育经历</h2>
+                <motion.span animate={{ rotate: openSections.includes('edu') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+              </motion.div>
+              <AnimatePresence>
+                {openSections.includes('edu') && (
+                  <motion.div
+                    key="edu"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="pt-4 text-gray-400"
+                  >
+                    （此处可编辑教育经历...）
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.section>
+            <motion.section layout className="mb-6">
+              <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('custom')}>
+                <h2 className="text-lg font-bold text-purple-700">自定义区域</h2>
+                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+              </motion.div>
+              <AnimatePresence>
+                {openSections.includes('custom') && (
+                  <motion.div
+                    key="custom"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="pt-4 text-gray-400"
+                  >
+                    （此处可编辑自定义内容...）
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.section>
+          </motion.div>
+
+          {/* 工具卡片 */}
+          <div className="w-80 flex-shrink-0">
+            <motion.div layout className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200 flex flex-col items-center mt-2">
+              <h2 className="text-lg font-bold text-purple-700 mb-4">简历工具</h2>
+              <motion.label
+                className="block w-full bg-white rounded-lg border border-purple-200 px-4 py-2 mb-4 text-purple-700 font-medium cursor-pointer hover:bg-purple-50 hover:border-purple-400 transition-all flex items-center gap-2"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.png,.bmp,.gif" onChange={handleFileChange} className="hidden" />
+                <span className="material-icons">upload_file</span> 上传附件
+              </motion.label>
+              <motion.button
+                className="bg-gradient-to-r from-purple-400 to-purple-600 text-white px-6 py-2 rounded-lg font-bold w-full mt-2"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowSmartSidebar(true)}
+              >
+                智能优化简历
+              </motion.button>
+            </motion.div>
+          </div>
+          {/* 智能优化对话边栏 */}
+          <AnimatePresence>
+            {showSmartSidebar && (
+              <motion.div
+                key="smart-sidebar"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="fixed top-0 right-0 h-full w-[400px] bg-white shadow-2xl z-50 flex flex-col p-8 border-l border-purple-200"
+              >
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-purple-700 mb-4">智能优化简历（预留）</h2>
+                  <div className="text-gray-500">这里将展示AI优化建议和对话...</div>
+                </div>
+                <button
+                  className="mt-8 bg-purple-600 text-white px-6 py-2 rounded font-bold w-full"
+                  onClick={() => setShowSmartSidebar(false)}
+                >
+                  关闭
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  );
+}
