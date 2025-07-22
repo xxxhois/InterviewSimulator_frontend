@@ -10,6 +10,7 @@ import Navigation from '@/components/Navigation';
 import { showToast } from '@/components/Toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { handleResumeUpload } from '@/api/resume';
 
 const emptyForm = {
   resume_name: '',
@@ -187,12 +188,12 @@ export default function ResumePage() {
     }
   };
 
-  // 上传附件（解析接口预留）
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    showToast('解析功能开发中...');
-  };
+  // // 上传附件（解析接口预留）
+  // const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+  //   showToast('解析功能开发中...');
+  // };
 
   // 卡片分区折叠
   const [openSections, setOpenSections] = useState<string[]>(['basic']);
@@ -266,7 +267,7 @@ export default function ResumePage() {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('basic')}>
                 <h2 className="text-lg font-bold text-purple-700">基本信息</h2>
-                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('basic') && !isLoading && (
@@ -356,7 +357,7 @@ export default function ResumePage() {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('work')}>
                 <h2 className="text-lg font-bold text-purple-700">工作经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('work') && !isLoading && (
@@ -478,7 +479,7 @@ export default function ResumePage() {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('project')}>
                 <h2 className="text-lg font-bold text-purple-700">项目经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('project') && (
@@ -498,7 +499,7 @@ export default function ResumePage() {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('edu')}>
                 <h2 className="text-lg font-bold text-purple-700">教育经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('edu') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('edu') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('edu') && (
@@ -518,7 +519,7 @@ export default function ResumePage() {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('custom')}>
                 <h2 className="text-lg font-bold text-purple-700">自定义区域</h2>
-                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">chevron_right</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('custom') && (
@@ -546,7 +547,7 @@ export default function ResumePage() {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
               >
-                <input type="file" accept=".pdf,.doc,.docx,.jpg,.png,.bmp,.gif" onChange={handleFileChange} className="hidden" />
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.png,.bmp,.gif" onChange={handleResumeUpload} className="hidden" />
                 <span className="material-icons">upload_file</span> 上传附件
               </motion.label>
               <motion.button

@@ -1,5 +1,6 @@
 import { ResumeList, Resume } from "@/types/resume";
 import { apiRequest } from "./apiRequest";
+import { showToast } from "@/components/Toast";
 /**
  * 识别简历内容
  * @param file 上传的文件对象
@@ -36,13 +37,13 @@ export async function recognizeResume(file: File): Promise<any> {
   });
 
   // body结构
-  const body = `cid=1&content=${encodeURIComponent(base64Content)}&ext=${ext}`;
+  const body = `cid=1&content=${base64Content}&ext=${ext}`;
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': 'APPCODE ' + appcode,
-      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'Content-Type': 'application/json; charset=UTF-8',
     },
     body: body,
   });
@@ -53,6 +54,34 @@ export async function recognizeResume(file: File): Promise<any> {
 
   return await response.json();
 }
+
+  // 上传简历
+  export const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg', 'image/png', 'image/bmp', 'image/gif'
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('请上传PDF、Word或图片格式的简历');
+      return;
+    }
+    try {
+      showToast('简历识别中...');
+      const result = await recognizeResume(file);
+      if (result.raw) {
+        showToast('识别失败：' + result.raw);
+      } else {
+        showToast('识别成功：' + (result?.msg || JSON.stringify(result).slice(0, 100)));
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast('识别失败：' + (err?.message || '未知错误'));
+    }
+  };
 
 export const getResumeList = async (): Promise<ResumeList> => {
   const response = await apiRequest({

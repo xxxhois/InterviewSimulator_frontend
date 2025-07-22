@@ -43,7 +43,7 @@ const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
       description: '针对八股、项目、代码等问题进行专项练习，在线评测',
       animation: programming,
       position: 'md:col-span-1',
-      route: '/written-test',
+      route: '/written-test/list',
       bgColor:'bg-gradient-to-br from-purple-300 to-purple-500',
       shadowColor: 'shadow-purple-200/30',
       type: 'animation'

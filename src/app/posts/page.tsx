@@ -1,8 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import { createPost } from '@/api/post';
 import Navigation from '@/components/Navigation';
 import PostList from '@/components/PostList';
-import { createPost } from '@/api/post';
+import React, { useState } from 'react';
 
 export default function PostsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -80,7 +80,7 @@ export default function PostsPage() {
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 required
-                placeholder="请输入内容，支持 Markdown"
+                placeholder="请输入内容，支持 HTML"
                 disabled={submitting}
               />
               {error && <div className="text-red-500 mb-2">{error}</div>}

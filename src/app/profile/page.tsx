@@ -2,7 +2,7 @@
 
 import { getPositionList, searchPositionList } from '@/api/position';
 import { getProfile, updateProfile } from '@/api/profile';
-import { recognizeResume } from '@/api/resume';
+import { handleResumeUpload, recognizeResume } from '@/api/resume';
 import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -190,33 +190,7 @@ export default function ProfilePage() {
     }]
   };
 
-  // 上传简历
-  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg', 'image/png', 'image/bmp', 'image/gif'
-    ];
-    if (!allowedTypes.includes(file.type)) {
-      showToast('请上传PDF、Word或图片格式的简历');
-      return;
-    }
-    try {
-      showToast('简历识别中...');
-      const result = await recognizeResume(file);
-      if (result.raw) {
-        showToast('识别失败：' + result.raw);
-      } else {
-        showToast('识别成功：' + (result?.msg || JSON.stringify(result).slice(0, 100)));
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast('识别失败：' + (err?.message || '未知错误'));
-    }
-  };
+
 
   if (profileLoading) return (
     <ProtectedRoute>

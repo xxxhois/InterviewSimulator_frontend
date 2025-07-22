@@ -13,7 +13,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: "首页", path: "/dashboard" },
   { name: "面试", path: "/interview/room",},
-  { name: "刷题", path: "/written-test" },
+  { name: "简历", path: "/resume" },
+  { name: "刷题", path: "/written-test/list" },
   { name: "社区", path: "/posts" },
   { name: "个人", path: "/profile" },
 ];
