@@ -479,7 +479,8 @@ export default function ProfilePage() {
                       : undefined,
                   });
                   setShowSidebar(false);
-                  // 可选：刷新资料
+                  // 刷新资料
+                  window.location.reload();
                 }}
               >
                 更新资料

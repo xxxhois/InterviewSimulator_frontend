@@ -1,5 +1,12 @@
 import { useAuthStore } from '@/store/authStore';
-import { useRouter } from 'next/navigation';
+
+// 自定义未授权错误类型
+export class UnauthorizedError extends Error {
+  constructor(message = '未授权') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
 
 // API配置
 const API_CONFIG = {
@@ -53,9 +60,7 @@ async function responseInterceptor(response: Response): Promise<any> {
   } else if (response.status === 401) {
     // 未授权，自动登出
     useAuthStore.getState().logout();
-    const router = useRouter();
-    router.push('/auth/login');
-    throw new Error('未授权，请重新登录');
+    throw new UnauthorizedError();
   } else {
     // 非200状态码，检查响应内容是否有error字段
     try {
@@ -84,7 +89,7 @@ export async function apiRequest({ method, url, data, headers = {}, attachToken 
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
 
-    const response = await fetch(interceptedOptions.url, {  // 修复：使用 interceptedOptions.url
+    const response = await fetch(interceptedOptions.url, {
       method: interceptedOptions.method,
       headers: { ...defaultHeaders, ...interceptedOptions.headers },
       body: interceptedOptions.method !== 'GET' ? JSON.stringify(interceptedOptions.data) : undefined,
