@@ -1,11 +1,13 @@
 'use client';
 
+import { getPositionList, searchPositionList } from '@/api/position';
 import { getProfile, updateProfile } from '@/api/profile';
 import { recognizeResume } from '@/api/resume';
 import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { showToast } from '@/components/Toast';
+import type { Position } from '@/types/postion';
 import { Profile } from '@/types/profile';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
@@ -28,9 +30,16 @@ export default function ProfilePage() {
     email: '',
     first_name: '',
     last_name: '',
-    phone: 0,
-    avatar: ''
+    phone: '',
+    avatar: '',
+    expected_position_id: '',
+    expected_salary: '',
   });
+  const [positionOptions, setPositionOptions] = useState<Position[]>([]);
+  const [positionPage, setPositionPage] = useState(1);
+  const [positionTotal, setPositionTotal] = useState(0);
+  const [positionSearch, setPositionSearch] = useState('');
+  const [positionLoading, setPositionLoading] = useState(false);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -89,6 +98,27 @@ export default function ProfilePage() {
 
     fetchProfileData();
   }, []);
+
+  useEffect(() => {
+    fetchPositions(1, '');
+  }, []);
+
+  const fetchPositions = async (page = 1, keyword = '') => {
+    setPositionLoading(true);
+    try {
+      let res;
+      if (keyword) {
+        res = await searchPositionList({ keyword, page });
+      } else {
+        res = await getPositionList({ page });
+      }
+      setPositionOptions(res.results);
+      setPositionTotal(res.count);
+      setPositionPage(page);
+    } finally {
+      setPositionLoading(false);
+    }
+  };
 
   // 能力评估图表配置（可根据实际数据动态生成）
   const skillMatchOption = {
@@ -230,8 +260,10 @@ export default function ProfilePage() {
                       email: profile.email || '',
                       first_name: profile.first_name || '',
                       last_name: profile.last_name || '',
-                      phone: Number(profile.phone) || 0,
-                      avatar: profile.avatar || ''
+                      phone: profile.phone || '',
+                      avatar: profile.avatar || '',
+                      expected_position_id: String(profile.target_position?.job_position_id) || '',
+                      expected_salary: profile.target_position?.expected_salary ? profile.target_position.expected_salary.join('-') : '',
                     });
                     setShowSidebar(true);
                   }}
@@ -378,15 +410,74 @@ export default function ProfilePage() {
             <label className="block mb-2 text-sm font-medium">手机号</label>
             <input
               className="w-full mb-3 border rounded px-3 py-2"
-              value={editProfile.phone}
-              onChange={e => setEditProfile(p => ({ ...p, phone: Number(e.target.value) }))}
+              value={String(editProfile.phone ?? '')}
+              onChange={e => setEditProfile(p => ({ ...p, phone: e.target.value }))}
+            />
+            <label className="block mb-2 text-sm font-medium">目标岗位</label>
+            <div className="flex gap-2 mb-3">
+              <input
+                className="flex-1 border rounded px-3 py-2"
+                placeholder="输入关键词搜索岗位"
+                value={positionSearch}
+                onChange={e => {
+                  setPositionSearch(e.target.value);
+                  fetchPositions(1, e.target.value);
+                }}
+              />
+              <button
+                className="px-2 py-1 bg-gray-200 rounded"
+                onClick={() => { setPositionSearch(''); fetchPositions(1, ''); }}
+                type="button"
+              >重置</button>
+            </div>
+            <select
+              className="w-full border rounded px-3 py-2 mb-3"
+              value={editProfile.expected_position_id || ''}
+              onChange={e => setEditProfile(p => ({ ...p, expected_position_id: e.target.value }))}
+            >
+              <option value="">请选择目标岗位</option>
+              {positionOptions.map(pos => (
+                <option key={pos.id} value={pos.id}>
+                  {pos.company_name} - {pos.position_name}
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-between items-center mb-2">
+              <button
+                className="px-2 py-1 text-xs"
+                disabled={positionPage <= 1 || positionLoading}
+                onClick={() => fetchPositions(positionPage - 1, positionSearch)}
+                type="button"
+              >上一页</button>
+              <span className="text-xs text-gray-500">第 {positionPage} 页 / 共 {Math.ceil(positionTotal / 10) || 1} 页</span>
+              <button
+                className="px-2 py-1 text-xs"
+                disabled={positionOptions.length < 10 || positionPage >= Math.ceil(positionTotal / 10) || positionLoading}
+                onClick={() => fetchPositions(positionPage + 1, positionSearch)}
+                type="button"
+              >下一页</button>
+            </div>
+            <label className="block mb-2 text-sm font-medium">期望薪资（K/月）</label>
+            <input
+              className="w-full mb-3 border rounded px-3 py-2"
+              placeholder="如：10-20"
+              value={editProfile.expected_salary}
+              onChange={e => setEditProfile(p => ({ ...p, expected_salary: e.target.value }))}
+              type="text"
             />
             {/* 头像等其它字段同理 */}
             <div className="flex gap-2 mt-6">
               <button
                 className="flex-1 bg-purple-600 text-white px-4 py-2 rounded font-bold"
                 onClick={async () => {
-                  await updateProfile(editProfile);
+                  await updateProfile({
+                    ...editProfile,
+                    phone: editProfile.phone ? editProfile.phone : undefined,
+                    expected_position_id: editProfile.expected_position_id ? Number(editProfile.expected_position_id) : undefined,
+                    expected_salary: editProfile.expected_salary
+                      ? editProfile.expected_salary.split('-').map(s => Number(s.trim())).filter(Boolean)
+                      : undefined,
+                  });
                   setShowSidebar(false);
                   // 可选：刷新资料
                 }}

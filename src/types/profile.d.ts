@@ -4,7 +4,7 @@ export type Profile = {
   email: string;
   first_name: string;
   last_name: string;
-  phone: number;
+  phone: string;
   avatar: string;
   target_position: {
     job_position_id: number;

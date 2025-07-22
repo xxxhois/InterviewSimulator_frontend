@@ -15,8 +15,10 @@ export interface UpdateProfileRequest {
   email?: string;
   first_name?: string;
   last_name?: string;
-  phone?: number;
+  phone?: string;
   avatar?: string;
+  expected_position_id?: number;//目标岗位id
+  expected_salary?: number[];
 }
 
 export interface UpdateProfileResponse {
