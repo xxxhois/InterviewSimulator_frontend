@@ -125,12 +125,12 @@ export default function ProfilePage() {
     title: { text: '能力雷达图', left: 'center', textStyle: { color: '#7c3aed', fontSize: 14, fontWeight: 'bold' } },
     radar: {
       indicator: [
-        { name: '表达能力', max: 100 },
-        { name: '技术知识', max: 100 },
-        { name: '情绪稳定', max: 100 },
-        { name: '逻辑思维', max: 100 },
-        { name: '肢体语言', max: 100 },
-        { name: '应变能力', max: 100 }
+        { name: '专业知识水平', max: 100 },
+        { name: '技能匹配度', max: 100 },
+        { name: '语言表达能力', max: 100 },
+        { name: '逻辑思维能力', max: 100 },
+        { name: '创新能力', max: 100 },
+        { name: '应变抗压能力', max: 100 }
       ],
       shape: 'circle',
       splitNumber: 5,

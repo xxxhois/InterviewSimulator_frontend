@@ -1,8 +1,10 @@
 'use client';
 
+import { getInterviewList } from '@/api/interview';
+import { Dialog } from '@headlessui/react';
 import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface NavItem {
   name: string;
@@ -23,11 +25,35 @@ export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
   const [currentPath, setCurrentPath] = useState(pathname);
-  const interviewTime = "14:30";//TODO: 获取今日面试时间
-  // 更新当前路径
+  // 新增面试提醒相关状态
+  const [nextInterview, setNextInterview] = useState<{ time: string; id: number } | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     setCurrentPath(pathname);
   }, [pathname]);
+
+  useEffect(() => {
+    getInterviewList().then(res => {
+      if (res.interviews && res.interviews.length > 0) {
+        const now = new Date();
+        const future = res.interviews
+          .map(i => ({ ...i, date: new Date(i.interview_time) }))
+          .filter(i => i.date > now)
+          .sort((a, b) => a.date.getTime() - b.date.getTime());
+        if (future.length > 0) {
+          setNextInterview({ time: future[0].interview_time, id: future[0].id });
+          const ms = future[0].date.getTime() - now.getTime();
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => setShowModal(true), ms);
+        }
+      }
+    });
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   // 检查是否为当前页面
   const isActive = (path: string) => {
@@ -88,7 +114,9 @@ export default function Navigation() {
               transition={{ duration: 0.8, delay: 0.2 }}
             >
               <div className="bg-gradient-to-r from-purple-400 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                今日面试:{interviewTime}
+                {nextInterview
+                  ? `下场面试: ${new Date(nextInterview.time).toLocaleString().replace(/:\d{2}$/, '')}`
+                  : "暂无面试"}
               </div>
             </motion.div>
           </div>
@@ -118,6 +146,25 @@ export default function Navigation() {
           </div>
         </div>
       </div>
+      {/* 到点弹窗 */}
+      <Dialog open={showModal} onClose={() => setShowModal(false)} className="fixed z-50 inset-0 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+        <Dialog.Panel className="bg-white rounded-xl p-8 shadow-xl z-50 max-w-sm w-full text-center">
+          <Dialog.Title className="text-lg font-bold mb-4 text-purple-700">面试提醒</Dialog.Title>
+          <div className="mb-4 text-gray-700">
+            您有一场面试即将开始，是否立即进入面试房间？
+          </div>
+          <button
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded font-bold"
+            onClick={() => {
+              setShowModal(false);
+              if (nextInterview) router.push(`/interview/room?id=${nextInterview.id}`);
+            }}
+          >
+            进入面试房间
+          </button>
+        </Dialog.Panel>
+      </Dialog>
     </div>
   );
 }
