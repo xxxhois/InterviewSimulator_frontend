@@ -1,19 +1,23 @@
 'use client';
 
 import { createInterview } from '@/api/interview';
+import { getPositionList, searchPositionList } from '@/api/position';
+import type { Position } from '@/types/postion';
+import { Dialog, Transition } from '@headlessui/react';
 import { getResumeList } from '@/api/resume';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import React from 'react';
 
-// mock 岗位接口
-const getJobPositionList = async () => {
-  // TODO: 替换为实际接口
-  return [
-    { id: 1, company_name: '字节跳动', position_name: '前端开发工程师', position_type: '全职', position_description: '负责Web前端开发' },
-    { id: 2, company_name: '腾讯', position_name: '后端开发工程师', position_type: '全职', position_description: '负责后端服务开发' },
-    { id: 3, company_name: '阿里巴巴', position_name: '算法工程师', position_type: '全职', position_description: '负责算法研发' },
-  ];
-};
+// // mock 岗位接口
+// const getJobPositionList = async () => {
+//   // TODO: 替换为实际接口
+//   // return [
+//   //   { id: 1, company_name: '字节跳动', position_name: '前端开发工程师', position_type: 'backend', position_description: '负责Web前端开发' },
+//   //   { id: 2, company_name: '腾讯', position_name: '后端开发工程师', position_type: 'algo', position_description: '负责后端服务开发' },
+//   //   { id: 3, company_name: '阿里巴巴', position_name: '算法工程师', position_type: 'qa', position_description: '负责算法研发' },
+//   // ];
+// };
 
 export default function InterviewBookingPage() {
   const router = useRouter();
@@ -24,11 +28,41 @@ export default function InterviewBookingPage() {
   const [selectedPosition, setSelectedPosition] = useState('');
   const [selectedResume, setSelectedResume] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [positionModalOpen, setPositionModalOpen] = useState(false);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [positionPage, setPositionPage] = useState(1);
+  const [positionTotal, setPositionTotal] = useState(0);
+  const [positionSearch, setPositionSearch] = useState('');
+  const [positionLoading, setPositionLoading] = useState(false);
+  const [positionSearchMode, setPositionSearchMode] = useState(false);
+  const [selectedPositionObj, setSelectedPositionObj] = useState<Position | null>(null);
 
+  // useEffect(() => {
+  //   // 获取岗位列表
+  //   getJobPositionList().then(setJobPositions);
+  //   // 获取简历列表
+  //   getResumeList().then(res => setResumes(res.resumes || []));
+  // }, []);
+  const fetchPositions = async (page = 1, keyword = '') => {
+    setPositionLoading(true);
+    try {
+      let res;
+      if (keyword) {
+        res = await searchPositionList({ keyword, page });
+        setPositionSearchMode(true);
+      } else {
+        res = await getPositionList({ page });
+        setPositionSearchMode(false);
+      }
+      setPositions(res.results);
+      setPositionTotal(res.count);
+      setPositionPage(page);
+    } finally {
+      setPositionLoading(false);
+    }
+  };
   useEffect(() => {
-    // 获取岗位列表
-    getJobPositionList().then(setJobPositions);
-    // 获取简历列表
+    fetchPositions(1);
     getResumeList().then(res => setResumes(res.resumes || []));
   }, []);
 
@@ -44,33 +78,41 @@ export default function InterviewBookingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    console.log('handleSubmit called');
+    if (!canSubmit) {
+      console.log('canSubmit is false', { mode, reserveTime, selectedPosition, selectedResume, submitting });
+      return;
+    }
     if (mode === 'reserve' && !isReserveTimeValid()) {
       // @ts-ignore
       window.toast && window.toast('预约时间必须晚于当前时间', { type: 'error' });
+      console.log('预约时间无效', reserveTime);
       return;
     }
     setSubmitting(true);
-    const position = jobPositions.find(p => String(p.id) === selectedPosition);
+    // 这里 jobPositions 已经不用了，直接用 selectedPositionObj
     const resume = resumes.find(r => String(r.resume_id) === selectedResume);
-    if (!position || !resume) {
+    if (!selectedPositionObj || !resume) {
       setSubmitting(false);
       // @ts-ignore
       window.toast && window.toast('请选择岗位和简历', { type: 'error' });
+      console.log('岗位或简历未选', { selectedPositionObj, resume });
       return;
     }
     const params = {
-      job_position_id: position.id,
+      job_position_id: Number(selectedPosition),
       resume_id: resume.resume_id,
       interview_time: mode === 'reserve' ? reserveTime : undefined,
-      position_name: position.position_name,
-      position_type: position.position_type,
-      company_name: position.company_name,
-      position_description: position.position_description,
+      // position_name: selectedPositionObj.position_name,
+      // position_type: selectedPositionObj.position_type,
+      // company_name: selectedPositionObj.company_name,
+      // position_description: selectedPositionObj.position_description,
     };
+    console.log('即将发送创建面试请求', params);
     try {
       const res = await createInterview(params);
       setSubmitting(false);
+      console.log('创建面试返回', res);
       // @ts-ignore
       window.toast && window.toast('预约成功！', { type: 'success' });
       if (mode === 'now' && res && res.id) {
@@ -80,6 +122,7 @@ export default function InterviewBookingPage() {
       setSubmitting(false);
       // @ts-ignore
       window.toast && window.toast(err.message || '预约失败', { type: 'error' });
+      console.error('创建面试失败', err);
     }
   };
 
@@ -126,19 +169,110 @@ export default function InterviewBookingPage() {
           {/* 目标岗位选择 */}
           <div>
             <label className="block text-gray-300 font-semibold mb-2">目标岗位</label>
-            <select
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              value={selectedPosition}
-              onChange={e => setSelectedPosition(e.target.value)}
-              required
-            >
-              <option value="">请选择目标岗位</option>
-              {jobPositions.map(pos => (
-                <option key={pos.id} value={pos.id}>{pos.company_name} - {pos.position_name}</option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-gray-300 font-semibold mb-2">目标岗位</label>
+              <button
+                type="button"
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-left"
+                onClick={() => setPositionModalOpen(true)}
+              >
+                {selectedPositionObj
+                  ? `${selectedPositionObj.company_name} - ${selectedPositionObj.position_name}`
+                  : '请选择目标岗位'}
+              </button>
+            </div>
           </div>
-
+          <Transition appear show={positionModalOpen} as={React.Fragment}>
+            <Dialog as="div" className="relative z-50" onClose={() => setPositionModalOpen(false)}>
+              <Transition.Child
+                as={React.Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0"
+                enterTo="opacity-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100"
+                leaveTo="opacity-0"
+              >
+                <div className="fixed inset-0 bg-gray-900/80" />
+              </Transition.Child>
+              <div className="fixed inset-0 overflow-y-auto">
+                <div className="flex min-h-full items-center justify-center p-4">
+                  <Transition.Child
+                    as={React.Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0 scale-95"
+                    enterTo="opacity-100 scale-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100 scale-100"
+                    leaveTo="opacity-0 scale-95"
+                  >
+                    <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl border border-gray-700">
+                      <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-4">选择目标岗位</Dialog.Title>
+                      <div className="mb-4 flex gap-2">
+                        <input
+                          type="text"
+                          className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          placeholder="输入关键词搜索岗位/公司"
+                          value={positionSearch}
+                          onChange={e => setPositionSearch(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { fetchPositions(1, positionSearch); } }}
+                        />
+                        <button
+                          type="button"
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+                          onClick={() => fetchPositions(1, positionSearch)}
+                        >搜索</button>
+                        <button
+                          type="button"
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
+                          onClick={() => { setPositionSearch(''); fetchPositions(1); }}
+                        >重置</button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto border border-gray-700 rounded mb-4 bg-gray-900">
+                        {positionLoading ? (
+                          <div className="text-center text-gray-400 py-8">加载中...</div>
+                        ) : positions.length === 0 ? (
+                          <div className="text-center text-gray-400 py-8">暂无岗位</div>
+                        ) : (
+                          <ul>
+                            {positions.map(pos => (
+                              <li
+                                key={pos.id}
+                                className={`px-4 py-2 cursor-pointer hover:bg-purple-700/30 ${selectedPositionObj?.id === pos.id ? 'bg-purple-700/60 text-white' : 'text-gray-200'}`}
+                                onClick={() => {
+                                  setSelectedPosition(String(pos.id));
+                                  setSelectedPositionObj(pos);
+                                  setPositionModalOpen(false);
+                                }}
+                              >
+                                {pos.company_name} - {pos.position_name}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      {/* 分页 */}
+                      <div className="flex justify-between items-center">
+                        <button
+                          type="button"
+                          className="px-3 py-1 rounded bg-gray-700 text-white disabled:opacity-50"
+                          disabled={positionPage <= 1 || positionLoading}
+                          onClick={() => fetchPositions(positionPage - 1, positionSearchMode ? positionSearch : '')}
+                        >上一页</button>
+                        <span className="text-gray-300">第 {positionPage} 页 / 共 {Math.ceil(positionTotal / 10) || 1} 页</span>
+                        <button
+                          type="button"
+                          className="px-3 py-1 rounded bg-gray-700 text-white disabled:opacity-50"
+                          disabled={positions.length < 10 || positionPage >= Math.ceil(positionTotal / 10) || positionLoading}
+                          onClick={() => fetchPositions(positionPage + 1, positionSearchMode ? positionSearch : '')}
+                        >下一页</button>
+                      </div>
+                    </Dialog.Panel>
+                  </Transition.Child>
+                </div>
+              </div>
+            </Dialog>
+          </Transition>
           {/* 简历选择 */}
           <div>
             <label className="block text-gray-300 font-semibold mb-2">选择简历</label>
