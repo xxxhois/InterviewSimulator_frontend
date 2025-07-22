@@ -11,10 +11,12 @@ import {
   deleteWorkExperience,
   getResumeDetail,
   getResumeList,
+  mapThirdPartyResume,
   handleResumeUpload
 } from '@/api/resume';
 import Navigation from '@/components/Navigation';
 import { showToast } from '@/components/Toast';
+import { Resume } from '@/types/resume';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
@@ -39,6 +41,7 @@ export default function ResumePage() {
   const [educationExperiences, setEducationExperiences] = useState<any[]>([]);
   const [customSections, setCustomSections] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [resumeParsed, setResumeParsed] = useState<any>(null);
   // 其他分区略，实际可用 useState 管理
 
   // const mockResumeList = [
@@ -47,7 +50,7 @@ export default function ResumePage() {
   // ];
   //获取简历列表
   useEffect(() => {
-    getResumeList().then(res => {
+    getResumeList().then((res: any) => {
       setResumeList(res.resumes || []);
       if (res.resumes && res.resumes.length > 0) setSelectedResumeId(res.resumes[0].resume_id);
     });
@@ -96,6 +99,51 @@ export default function ResumePage() {
     setIsCreating(true);
   };
 
+// useEffect(() => {
+//   console.log('resumeParsed',resumeParsed)
+//   if (resumeParsed) {
+//     const mapped = mapThirdPartyResume(resumeParsed);
+//     setFormBasic({
+//       resume_name: mapped.name || '',
+//       real_name: mapped.name || '',
+//       age: mapped.age ? String(mapped.age) : '',
+//       graduation_date: mapped.graduation_date || '',
+//       education_level: mapped.education_level || '',
+//       expected_position: mapped.expected_position || '',
+//     });
+//     setWorkExperiences(mapped.work_experiences || []);
+//     setProjectExperiences(mapped.project_experiences || []);
+//     setEducationExperiences(mapped.education_experiences || []);
+//     setCustomSections(mapped.custom_sections || []);
+//     setBasicSubmitted(false);
+//     setIsCreating(true);
+//   }
+// }, [resumeParsed]);
+
+const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const parsed = await handleResumeUpload(e);
+  console.log('parsed',parsed)
+  // const parsed = mapThirdPartyResume(mapped);
+  // console.log('parsed',parsed)
+  if (parsed) {
+    setResumeParsed(parsed);
+    setSelectedResumeId(null);
+    setFormBasic({
+      resume_name: parsed.name || '',
+      real_name: parsed.name || '',
+      age: parsed.age ? String(parsed.age) : '',
+      graduation_date: parsed.graduation_date || '',
+      education_level: parsed.education_level || '',
+      expected_position: parsed.expected_position || '',
+    });
+    setWorkExperiences(parsed.work_experiences || []);
+    setProjectExperiences(parsed.project_experiences || []);
+    setEducationExperiences(parsed.education_experiences || []);
+    setCustomSections(parsed.custom_sections || []);
+    setBasicSubmitted(false);
+    setIsCreating(true);
+  }
+};
   // 提交基本信息
   const handleBasicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +167,7 @@ export default function ResumePage() {
       setBasicSubmitted(true);
       setIsCreating(false);
       // 新建后刷新列表并选中新建项
-      getResumeList().then(resList => {
+      getResumeList().then((resList: any) => {
         setResumeList(resList.resumes || []);
         if (resList.resumes && resList.resumes.length > 0) {
           setSelectedResumeId(resList.resumes[resList.resumes.length - 1].resume_id);
@@ -935,7 +983,7 @@ export default function ResumePage() {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
               >
-                <input type="file" accept=".pdf,.doc,.docx,.jpg,.png,.bmp,.gif" onChange={handleResumeUpload} className="hidden" />
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.png,.bmp,.gif" onChange={e => handleFileChange(e)} className="hidden" />
                 <span className="material-icons">upload_file</span> 上传附件
               </motion.label>
               <motion.button

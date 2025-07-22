@@ -1,21 +1,23 @@
 'use client';
 
-import { runCode } from '@/api/code';
 import { createDigitalHuman, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
+import { runCode } from '@/api/code';
 import { RTCPlayer } from '@/lib/rtcplayer';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { DIGITAL_HUMAN_CONFIG } from '@/api/digitalHuman';
+import { useSearchParams } from 'next/navigation';
 
-// 数字人配置常量
-const DIGITAL_HUMAN_CONFIG = {
-  appId: "5945676c",
-  apiKey: "203214509c072eca540be4c80bf533fa",
-  apiSecret: "NjRjYmJhOTcxYzE0NzJhZTJhMDc4Y2E0",
-  baseUrl: "wss://avatar.cn-huadong-1.xf-yun.com/v1/interact",
-  anchorId: "110332017",
-  vcn: "x4_mingge"
-};
+// // 数字人配置常量
+// const DIGITAL_HUMAN_CONFIG = {
+//   appId: "5945676c",
+//   apiKey: "203214509c072eca540be4c80bf533fa",
+//   apiSecret: "NjRjYmJhOTcxYzE0NzJhZTJhMDc4Y2E0",
+//   baseUrl: "wss://avatar.cn-huadong-1.xf-yun.com/v1/interact",
+//   anchorId: "110332017",
+//   vcn: "x4_"
+// };
 
 // 动态引入 Monaco Editor，避免 SSR 问题
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
@@ -56,8 +58,11 @@ function downsampleBuffer(buffer: Float32Array, sampleRate: number, outRate: num
 }
 
 export default function InterviewPage() {
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  // 使用 next/navigation 提供的 useSearchParams 钩子获取参数
+  const searchParams = useSearchParams();
+
   const interview_id = searchParams ? searchParams.get('id') : null;
+  const resume_id = searchParams ? searchParams.get('resume_id') : null;
   // 代码内容、语言、弹窗状态
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('plaintext');
@@ -125,8 +130,9 @@ export default function InterviewPage() {
         ws.send(JSON.stringify({
           "type": "create_stream",
           "title": "面试视频流",
+          "description": "实时面试",
           "interview_id": interview_id,
-          "description": "实时面试"
+          "resume_id": resume_id
         }));
       };
     ws.onmessage = (event) => {
@@ -900,13 +906,13 @@ export default function InterviewPage() {
           >
             {question}
           </div>
-          <div className="text-gray-400 text-sm font-semibold mb-1">面试官问题</div>
+          {/* <div className="text-gray-400 text-sm font-semibold mb-1">面试官问题</div>
           <div
             className="text-gray-300 text-sm break-words whitespace-pre-line max-w-full"
             style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
           >
             {mockQuestion.title}
-          </div>
+          </div> */}
         </div>
         <div className="sticky bottom-0 left-0 right-0 bg-gray-800 p-4 flex flex-col gap-2 z-10 border-t border-gray-700">
           <button

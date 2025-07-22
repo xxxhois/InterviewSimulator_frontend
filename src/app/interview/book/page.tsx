@@ -8,15 +8,6 @@ import { Dialog, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
-// // mock 岗位接口
-// const getJobPositionList = async () => {
-//   // TODO: 替换为实际接口
-//   // return [
-//   //   { id: 1, company_name: '字节跳动', position_name: '前端开发工程师', position_type: 'backend', position_description: '负责Web前端开发' },
-//   //   { id: 2, company_name: '腾讯', position_name: '后端开发工程师', position_type: 'algo', position_description: '负责后端服务开发' },
-//   //   { id: 3, company_name: '阿里巴巴', position_name: '算法工程师', position_type: 'qa', position_description: '负责算法研发' },
-//   // ];
-// };
 
 export default function InterviewBookingPage() {
   const router = useRouter();
@@ -65,27 +56,13 @@ export default function InterviewBookingPage() {
     getResumeList().then(res => setResumes(res.resumes || []));
   }, []);
 
-  const isReserveTimeValid = () => {
-    if (mode !== 'reserve') return true;
-    if (!reserveTime) return false;
-    const now = new Date();
-    const selected = new Date(reserveTime);
-    return selected.getTime() > now.getTime();
-  };
-
-  const canSubmit = (mode === 'now' || (mode === 'reserve' && reserveTime && isReserveTimeValid())) && selectedPosition && selectedResume && !submitting;
+  const canSubmit = (mode === 'now' || (mode === 'reserve' && reserveTime /* && isReserveTimeValid() */)) && selectedPosition && selectedResume && !submitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('handleSubmit called');
     if (!canSubmit) {
       console.log('canSubmit is false', { mode, reserveTime, selectedPosition, selectedResume, submitting });
-      return;
-    }
-    if (mode === 'reserve' && !isReserveTimeValid()) {
-      // @ts-ignore
-      window.toast && window.toast('预约时间必须晚于当前时间', { type: 'error' });
-      console.log('预约时间无效', reserveTime);
       return;
     }
     setSubmitting(true);
@@ -102,10 +79,10 @@ export default function InterviewBookingPage() {
       job_position_id: Number(selectedPosition),
       resume_id: resume.resume_id,
       interview_time: mode === 'reserve' ? reserveTime : undefined,
-      // position_name: selectedPositionObj.position_name,
+      position_name: selectedPositionObj.position_name,
       // position_type: selectedPositionObj.position_type,
-      // company_name: selectedPositionObj.company_name,
-      // position_description: selectedPositionObj.position_description,
+      //company_name: selectedPositionObj.company_name,
+      position_description: '暂无',
     };
     console.log('即将发送创建面试请求', params);
     try {
@@ -115,7 +92,7 @@ export default function InterviewBookingPage() {
       // @ts-ignore
       window.toast && window.toast('预约成功！', { type: 'success' });
       if (mode === 'now' && res && res.id) {
-        router.push(`/interview/room?id=${res.id}`);
+        router.push(`/interview/room/?id=${res.id}&resume_id=${resume.resume_id}`);
       }
     } catch (err: any) {
       setSubmitting(false);

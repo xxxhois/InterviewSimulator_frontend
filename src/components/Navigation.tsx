@@ -1,10 +1,10 @@
 'use client';
 
-import { getInterviewList } from '@/api/interview';
-import { Dialog } from '@headlessui/react';
 import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { getInterviewList } from '@/api/interview';
+import { Dialog } from '@headlessui/react';
 
 interface NavItem {
   name: string;
@@ -16,7 +16,7 @@ const navItems: NavItem[] = [
   { name: "首页", path: "/dashboard" },
   { name: "面试", path: "/interview/room",},
   { name: "简历", path: "/resume" },
-  { name: "刷题", path: "/written-test/list" },
+  { name: "刷题", path: "/written-test/ide" },
   { name: "社区", path: "/posts" },
   { name: "个人", path: "/profile" },
 ];

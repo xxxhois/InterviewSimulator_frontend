@@ -1,5 +1,5 @@
 // 数字人API配置
-const DIGITAL_HUMAN_CONFIG = {
+export const DIGITAL_HUMAN_CONFIG = {
     appId: "5945676c",
     apiKey: "203214509c072eca540be4c80bf533fa",
     apiSecret: "NjRjYmJhOTcxYzE0NzJhZTJhMDc4Y2E0",

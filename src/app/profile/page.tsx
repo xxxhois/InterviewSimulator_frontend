@@ -2,7 +2,7 @@
 
 import { getPositionList, searchPositionList } from '@/api/position';
 import { getProfile, updateProfile } from '@/api/profile';
-import { handleResumeUpload, recognizeResume } from '@/api/resume';
+//import { handleResumeUpload, recognizeResume } from '@/api/resume';
 import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -246,7 +246,7 @@ export default function ProfilePage() {
                 </button>
                 <label className="px-4 py-2 bg-purple-100 text-purple-700 border border-purple-400 rounded-lg shadow hover:bg-purple-200 transition cursor-pointer">
                   上传新简历
-                  <input type="file" accept="application/pdf" className="hidden" onChange={handleResumeUpload} />
+                  <input type="file" accept="application/pdf" className="hidden" onChange={() => showToast('请上传PDF、Word或图片格式的简历')} />
                 </label>
               </div>
             </div>

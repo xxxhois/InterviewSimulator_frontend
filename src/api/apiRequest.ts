@@ -53,7 +53,7 @@ async function responseInterceptor(response: Response): Promise<any> {
     headers: Object.fromEntries(response.headers.entries())
   });
 
-  if (response.status === 200) {
+  if (response.status === 200 || response.status === 201) {
     const data = await response.json();
     console.log('✅ Success Response:', data);
     return data;
