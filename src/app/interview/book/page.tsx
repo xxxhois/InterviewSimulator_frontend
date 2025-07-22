@@ -2,12 +2,11 @@
 
 import { createInterview } from '@/api/interview';
 import { getPositionList, searchPositionList } from '@/api/position';
+import { getResumeList } from '@/api/resume';
 import type { Position } from '@/types/postion';
 import { Dialog, Transition } from '@headlessui/react';
-import { getResumeList } from '@/api/resume';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 // // mock 岗位接口
 // const getJobPositionList = async () => {

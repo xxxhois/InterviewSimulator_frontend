@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchPosts } from '@/api/post';
 import AIbot from '@/assets/AIbot.json';
 import programming from '@/assets/programming.json';
 import Navigation from '@/components/Navigation';
@@ -16,7 +17,7 @@ const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
   const features: Array<{
     title: string;
-    description: string;
+    description?: string;
     position: string;
     route?: string;
     bgColor: string;
@@ -59,8 +60,6 @@ const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
     },
       {
       title: '交流社区',
-      description: '交流学习经验，分享学习资源，与同行一起成长。',
-
       position: 'md:col-span-1',
       bgColor: 'bg-white border-2 border-purple-400',
       shadowColor: 'shadow-purple-200/30',
@@ -106,6 +105,7 @@ const MainDashboard = () => {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [communityPosts, setCommunityPosts] = useState<any[]>([]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -126,6 +126,12 @@ const MainDashboard = () => {
     // 更新时间
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    fetchPosts({ pageParam: 3, pageSize: 5 }).then(res => {
+      setCommunityPosts(res.results || []);
+    });
   }, []);
 
   // ECharts配置 - 能力雷达图
@@ -430,31 +436,84 @@ const MainDashboard = () => {
             <motion.div
               className={`${features[3].bgColor} rounded-3xl p-6 shadow-2xl ${features[3].shadowColor} border border-purple-200/20 h-full`}
             >
-                          <div className="flex flex-col h-full">
-                <div className="flex items-center mb-4">
-                  <h2 className={`text-xl font-bold ${features[3].textColor || 'text-white'}`}>
-                    {features[3].title}
-                  </h2>
-                </div>
-                <p className={`text-sm mb-6 flex-grow ${features[3].textColor ? 'text-gray-700' : 'text-white/90'}`}>
-                  {features[3].description}
-                </p>
-                <div className="flex justify-center">
-                  {features[3].type === 'animation' ? (
-                    <Player
-                      autoplay
-                      loop
-                      src={features[3].animation}
-                      style={{ height: '120px', width: '120px' }}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <span className="text-6xl mb-2">{features[3].icon}</span>
-                      <div className="w-16 h-1 bg-white/30 rounded-full"></div>
-                    </div>
-                  )}
-                </div>
+                          <div className="flex flex-col h-full relative">
+      {/* 右上角查看更多 */}
+      <button
+        className="absolute top-2 right-2 text-purple-600 hover:underline text-sm font-medium"
+        onClick={() => router.push('/posts')}
+      >
+        查看更多
+      </button>
+      <div className="flex items-center mb-2">
+        <h2 className={`text-xl font-bold ${features[3].textColor || 'text-white'}`}>
+          {features[3].title}
+        </h2>
+      </div>
+      <p className={`text-sm mb-2 ${features[3].textColor ? 'text-gray-700' : 'text-white/90'}`}>
+        {features[3].description}
+      </p>
+      {/* 帖子列表填满父容器 */}
+      <div className="flex-1 overflow-auto space-y-1">
+        {communityPosts.map((post, idx) => (
+          <motion.div
+            key={post.id}
+            className="relative bg-white/90 rounded border border-purple-100 p-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.07, duration: 0.4, type: 'spring' }}
+          >
+            {/* 右上角标签 */}
+            {(post.isHot || post.isRecommended) && (
+              <div className="absolute top-2 right-2 flex items-center space-x-1">
+                {post.isHot && (
+                  <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow">热帖</span>
+                )}
+                {post.isRecommended && (
+                  <span className="bg-yellow-400 text-white text-xs px-2 py-0.5 rounded-full font-bold shadow flex items-center">
+                    <svg className="w-3 h-3 mr-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.122-6.545L.488 6.91l6.561-.955L10 0l2.951 5.955 6.561.955-4.756 4.635 1.122 6.545z"/></svg>
+                    推荐
+                  </span>
+                )}
               </div>
+            )}
+            <div className="font-semibold text-purple-700 mb-0.5">{post.title}</div>
+            <div
+              className="text-gray-700 text-sm"
+              style={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'pre-line',
+                lineHeight: '1.5em',
+                maxHeight: '3em',
+              }}
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+          </motion.div>
+        ))}
+        {communityPosts.length === 0 && (
+          <div className="text-gray-400 text-center">暂无帖子</div>
+        )}
+      </div>
+      {/* 动画或icon始终贴底 */}
+      <div className="flex justify-center mt-2">
+        {features[3].type === 'animation' ? (
+          <Player
+            autoplay
+            loop
+            src={features[3].animation}
+            style={{ height: '120px', width: '120px' }}
+          />
+        ) : (
+          <div className="flex flex-col items-center">
+            <span className="text-6xl mb-2">{features[3].icon}</span>
+            <div className="w-16 h-1 bg-white/30 rounded-full"></div>
+          </div>
+        )}
+      </div>
+</div>
             </motion.div>
           </div>
         </motion.div>

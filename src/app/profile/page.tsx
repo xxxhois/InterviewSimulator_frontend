@@ -1,6 +1,6 @@
 'use client';
 
-import { getProfile } from '@/api/profile';
+import { getProfile, updateProfile } from '@/api/profile';
 import { recognizeResume } from '@/api/resume';
 import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
@@ -14,7 +14,6 @@ import { useEffect, useState } from 'react';
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 export default function ProfilePage() {
-  // 假数据，实际应通过API获取
   const [profile, setProfile] = useState<Profile | null>(null);
   const [resumes, setResumes] = useState<any[]>([]);
   const [practiceRecords, setPracticeRecords] = useState<any[]>([]);
@@ -24,6 +23,14 @@ export default function ProfilePage() {
   const [commentLoading, setCommentLoading] = useState(true);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [editProfile, setEditProfile] = useState({
+    email: '',
+    first_name: '',
+    last_name: '',
+    phone: 0,
+    avatar: ''
+  });
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -34,18 +41,17 @@ export default function ProfilePage() {
         setProfile(profileData);
         
         // 从profile中提取简历信息
-        if (profileData.resume && profileData.resume.resume_id) {
-          setResumes([
-            {
-              resume_id: profileData.resume.resume_id,
-              resume_name: profileData.resume.resume_name || '未命名简历',
-              expected_position: profileData.resume.expected_position || '未设置',
-              completed: profileData.resume.completed || false,
-              updated: profileData.resume.updated_at ? profileData.resume.updated_at.slice(0, 10) : '未知'
-            }
-          ]);
+        if (Array.isArray(profileData.resume) && profileData.resume.length > 0) {
+          setResumes(
+            profileData.resume.map(r => ({
+              resume_id: r.resume_id,
+              resume_name: r.resume_name || '未命名简历',
+              expected_position: r.expected_position || '未设置',
+              completed: r.completed || false,
+              updated: r.updated_at ? r.updated_at.slice(0, 10) : '未知'
+            }))
+          );
         } else {
-          // 如果没有简历信息或resume_id为空，设置为空数组
           setResumes([]);
         }
         
@@ -217,7 +223,21 @@ export default function ProfilePage() {
               <div className="mt-2 text-gray-700">邮箱：{profile.email || '未设置'} | 手机：{profile.phone || '未设置'}</div>
               <div className="mt-2 text-gray-700">目标职位：{profile.target_position?.company_name || '未设置'} - {profile.target_position?.position_name || '未设置'} | 期望薪资：{profile.target_position?.expected_salary ? profile.target_position.expected_salary.join('-') : '未设置'}K</div>
               <div className="mt-4 flex space-x-4">
-                <button className="px-4 py-2 bg-purple-500 text-white rounded-lg shadow hover:bg-purple-600 transition" onClick={() => showToast('完善资料功能开发中~')}>完善/更新资料</button>
+                <button
+                  className="px-4 py-2 bg-purple-500 text-white rounded-lg shadow hover:bg-purple-600 transition"
+                  onClick={() => {
+                    setEditProfile({
+                      email: profile.email || '',
+                      first_name: profile.first_name || '',
+                      last_name: profile.last_name || '',
+                      phone: Number(profile.phone) || 0,
+                      avatar: profile.avatar || ''
+                    });
+                    setShowSidebar(true);
+                  }}
+                >
+                  完善/更新资料
+                </button>
                 <label className="px-4 py-2 bg-purple-100 text-purple-700 border border-purple-400 rounded-lg shadow hover:bg-purple-200 transition cursor-pointer">
                   上传新简历
                   <input type="file" accept="application/pdf" className="hidden" onChange={handleResumeUpload} />
@@ -334,6 +354,54 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+        {showSidebar && (
+          <div className="fixed top-0 right-0 h-full w-[350px] bg-white shadow-2xl z-50 flex flex-col p-8 border-l border-purple-200">
+            <h2 className="text-xl font-bold text-purple-700 mb-4">编辑资料</h2>
+            <label className="block mb-2 text-sm font-medium">邮箱</label>
+            <input
+              className="w-full mb-3 border rounded px-3 py-2"
+              value={editProfile.email}
+              onChange={e => setEditProfile(p => ({ ...p, email: e.target.value }))}
+            />
+            <label className="block mb-2 text-sm font-medium">姓</label>
+            <input
+              className="w-full mb-3 border rounded px-3 py-2"
+              value={editProfile.first_name}
+              onChange={e => setEditProfile(p => ({ ...p, first_name: e.target.value }))}
+            />
+            <label className="block mb-2 text-sm font-medium">名</label>
+            <input
+              className="w-full mb-3 border rounded px-3 py-2"
+              value={editProfile.last_name}
+              onChange={e => setEditProfile(p => ({ ...p, last_name: e.target.value }))}
+            />
+            <label className="block mb-2 text-sm font-medium">手机号</label>
+            <input
+              className="w-full mb-3 border rounded px-3 py-2"
+              value={editProfile.phone}
+              onChange={e => setEditProfile(p => ({ ...p, phone: Number(e.target.value) }))}
+            />
+            {/* 头像等其它字段同理 */}
+            <div className="flex gap-2 mt-6">
+              <button
+                className="flex-1 bg-purple-600 text-white px-4 py-2 rounded font-bold"
+                onClick={async () => {
+                  await updateProfile(editProfile);
+                  setShowSidebar(false);
+                  // 可选：刷新资料
+                }}
+              >
+                更新资料
+              </button>
+              <button
+                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded font-bold"
+                onClick={() => setShowSidebar(false)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );
