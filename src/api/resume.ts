@@ -96,6 +96,7 @@ export const getResumeList = async (): Promise<ResumeList> => {
     const response = await apiRequest({
       method: 'GET',
       url: `/users/resume/?resume_id=${resume_id}`,
+      attachToken: true,
     });
     return response.resume;
   };
@@ -186,7 +187,7 @@ export const createOrUpdateProjectExperience = async (data: {
  * @returns Promise<any>
  */
 export const deleteProjectExperience = async (params: { resume_id: number; project_id: number }) => {
-  // 中文注释：调用后端接口删除项目经历
+  //调用后端接口删除项目经历
   return await apiRequest({
     method: "DELETE",
     url: "/users/resume/project/delete/",

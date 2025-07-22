@@ -58,8 +58,10 @@ async function responseInterceptor(response: Response): Promise<any> {
     console.log('✅ Success Response:', data);
     return data;
   } else if (response.status === 401) {
+    console.log('响应检测到401无权限');
     // 未授权，自动登出
     useAuthStore.getState().logout();
+    window.location.href = '/auth/login';
     throw new UnauthorizedError();
   } else {
     // 非200状态码，检查响应内容是否有error字段
@@ -78,6 +80,7 @@ async function responseInterceptor(response: Response): Promise<any> {
 
 export async function apiRequest({ method, url, data, headers = {}, attachToken = true, isFullUrl = false }: RequestOptions): Promise<any> {
   try {
+    //console.log('apiRequest:', method, url, data, headers, attachToken, isFullUrl);
     // 请求拦截器
     const interceptedOptions = requestInterceptor({ method, url, data, headers, attachToken, isFullUrl });
     
@@ -95,10 +98,11 @@ export async function apiRequest({ method, url, data, headers = {}, attachToken 
       body: interceptedOptions.method !== 'GET' ? JSON.stringify(interceptedOptions.data) : undefined,
     });
 
+    console.log('fetch response:', response);
     // 响应拦截器
     return await responseInterceptor(response);
   } catch (error) {
-    console.error('💥 API request error:', error);
+    console.error('💥 API request error:', error, typeof error, error instanceof TypeError);
     throw error;
   }
 }
