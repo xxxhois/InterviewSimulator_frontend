@@ -3,6 +3,7 @@
 import { getPositionList, searchPositionList } from '@/api/position';
 import { getProfile, updateProfile } from '@/api/profile';
 //import { handleResumeUpload, recognizeResume } from '@/api/resume';
+import { getUserEvaluationOverview } from '@/api/evaluation';
 import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -26,6 +27,8 @@ export default function ProfilePage() {
   const [commentError, setCommentError] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [evaluationData, setEvaluationData] = useState<any>(null);
+  const [evaluationLoading, setEvaluationLoading] = useState(true);
   const [editProfile, setEditProfile] = useState({
     email: '',
     first_name: '',
@@ -75,18 +78,35 @@ export default function ProfilePage() {
           { id: 2, company: '腾讯', position: '前端开发', date: '2024-03-28', result: '未通过' }
         ]);
 
-        // 模拟异步获取能力评估评语
-        setCommentLoading(true);
-        setCommentError(null);
-        setTimeout(() => {
-          // 假设接口返回如下内容
-          setComment(
-            '基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n' +
-            '面试通过率较高，具备良好的沟通表达能力。\n' +
-            '建议继续加强高频算法题训练，提升代码优化能力。'
-          );
+        // 获取能力评估数据
+        setEvaluationLoading(true);
+        try {
+          const evaluationResponse = await getUserEvaluationOverview();
+          setEvaluationData(evaluationResponse);
+          setComment(evaluationResponse.summary);
+        } catch (error) {
+          console.error('获取能力评估数据失败:', error);
+          // 如果API失败，使用默认数据
+          setEvaluationData({
+            radar: {
+              dimensions: ['专业知识水平', '技能匹配度', '语言表达能力', '逻辑思维能力', '创新能力', '应变抗压能力'],
+              scores: [75, 85, 70, 80, 65, 72]
+            },
+            masteryProgress: {
+              labels: ['前端开发', '后端开发', '算法设计', '系统设计', '其他技能'],
+              progress: [0.35, 0.25, 0.20, 0.15, 0.05]
+            },
+            trend: {
+              dates: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
+              scores: [65, 70, 78, 80, 85, 88]
+            },
+            summary: '基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n面试通过率较高，具备良好的沟通表达能力。\n建议继续加强高频算法题训练，提升代码优化能力。'
+          });
+          setComment('基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n面试通过率较高，具备良好的沟通表达能力。\n建议继续加强高频算法题训练，提升代码优化能力。');
+        } finally {
+          setEvaluationLoading(false);
           setCommentLoading(false);
-        }, 800);
+        }
         
       } catch (error) {
         console.error('获取用户资料失败:', error);
@@ -120,11 +140,11 @@ export default function ProfilePage() {
     }
   };
 
-  // 能力评估图表配置（可根据实际数据动态生成）
+  // 能力评估图表配置（根据API数据动态生成）
   const skillMatchOption = {
     title: { text: '能力雷达图', left: 'center', textStyle: { color: '#7c3aed', fontSize: 14, fontWeight: 'bold' } },
     radar: {
-      indicator: [
+      indicator: evaluationData?.radar?.dimensions?.map((dimension: string) => ({ name: dimension, max: 100 })) || [
         { name: '专业知识水平', max: 100 },
         { name: '技能匹配度', max: 100 },
         { name: '语言表达能力', max: 100 },
@@ -142,8 +162,20 @@ export default function ProfilePage() {
       name: '能力评估',
       type: 'radar',
       data: [
-        { value: [75, 85, 70, 80, 65, 72], name: '当前能力', areaStyle: { color: 'rgba(147, 51, 234, 0.4)' }, lineStyle: { color: '#9333ea', width: 3 }, itemStyle: { color: '#9333ea' } },
-        { value: [90, 95, 85, 90, 80, 88], name: '目标能力', areaStyle: { color: 'rgba(236, 72, 153, 0.4)' }, lineStyle: { color: '#ec4899', width: 3, type: 'dashed' }, itemStyle: { color: '#ec4899' } }
+        { 
+          value: evaluationData?.radar?.scores || [75, 85, 70, 80, 65, 72], 
+          name: '当前能力', 
+          areaStyle: { color: 'rgba(147, 51, 234, 0.4)' }, 
+          lineStyle: { color: '#9333ea', width: 3 }, 
+          itemStyle: { color: '#9333ea' } 
+        },
+        { 
+          value: [90, 95, 85, 90, 80, 88], 
+          name: '目标能力', 
+          areaStyle: { color: 'rgba(236, 72, 153, 0.4)' }, 
+          lineStyle: { color: '#ec4899', width: 3, type: 'dashed' }, 
+          itemStyle: { color: '#ec4899' } 
+        }
       ]
     }]
   };
@@ -155,7 +187,13 @@ export default function ProfilePage() {
       type: 'pie',
       radius: ['40%', '70%'],
       center: ['60%', '50%'],
-      data: [
+      data: evaluationData?.masteryProgress?.labels?.map((label: string, index: number) => ({
+        value: Math.round((evaluationData.masteryProgress.progress[index] || 0) * 100),
+        name: label,
+        itemStyle: { 
+          color: ['#8b5cf6', '#a855f7', '#c084fc', '#ec4899', '#f59e0b', '#10b981'][index % 6] 
+        }
+      })) || [
         { value: 35, name: '前端开发', itemStyle: { color: '#8b5cf6' } },
         { value: 25, name: '后端开发', itemStyle: { color: '#a855f7' } },
         { value: 20, name: '算法设计', itemStyle: { color: '#c084fc' } },
@@ -167,13 +205,18 @@ export default function ProfilePage() {
 
   const trendOption = {
     title: { text: '能力提升趋势', left: 'center', textStyle: { color: '#7c3aed', fontSize: 14, fontWeight: 'bold' } },
-    xAxis: { type: 'category', data: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'], axisLine: { lineStyle: { color: '#7c3aed' } }, axisLabel: { color: '#7c3aed' } },
+    xAxis: { 
+      type: 'category', 
+      data: evaluationData?.trend?.dates || ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'], 
+      axisLine: { lineStyle: { color: '#7c3aed' } }, 
+      axisLabel: { color: '#7c3aed' } 
+    },
     yAxis: { type: 'value', min: 0, max: 100, axisLine: { lineStyle: { color: '#7c3aed' } }, axisLabel: { color: '#7c3aed' } },
     series: [{
       name: '综合评分',
       type: 'line',
       smooth: true,
-      data: [65, 70, 78, 80, 85, 88],
+      data: evaluationData?.trend?.scores || [65, 70, 78, 80, 85, 88],
       lineStyle: { color: '#8b5cf6', width: 4 },
       itemStyle: { color: '#8b5cf6', borderWidth: 3, borderColor: '#fff' },
       areaStyle: {
