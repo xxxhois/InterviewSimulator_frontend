@@ -1,4 +1,5 @@
 'use client';
+import { getInterviewEvaluation } from '@/api/evaluation';
 import AIbot from '@/assets/AIbot.json';
 import type { EvaluationResult } from '@/types/evaluation';
 import { Dialog, Transition } from '@headlessui/react';
@@ -6,7 +7,8 @@ import { Player } from '@lottiefiles/react-lottie-player';
 import { motion } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import dynamic from 'next/dynamic';
-import { useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState, Suspense } from 'react';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
@@ -15,6 +17,7 @@ interface EvaluationModalProps {
   onClose: () => void;
   data?: EvaluationResult; // 可传入真实数据，默认用mock
 }
+
 
 const mockData: EvaluationResult = {
   "radar": {
@@ -61,17 +64,28 @@ const mockData: EvaluationResult = {
   }
 };
 
-export default function EvaluationModal({ open, onClose, data }: EvaluationModalProps) {
-  const evalData = data || mockData;
+export default function EvaluationModal({ open, onClose }: EvaluationModalProps) {
+  const searchParams = useSearchParams();
+  const interview_id = searchParams.get('interview_id');
+  const [evalData, setEvalData] = useState<EvaluationResult>(mockData);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
-
+  useEffect(() => {
+    const fetchData = async () => {
+      if (interview_id) {
+        const data = await getInterviewEvaluation(Number(interview_id));
+        setEvalData(data);
+      }
+    };
+    fetchData();
+  }, [interview_id]);
   // 雷达图配置
   const radarOption = {
     title: { text: '能力雷达图', left: 'center', textStyle: { color: '#7c3aed', fontWeight: 'bold', fontSize: 16 } },
     tooltip: {},
     radar: {
-      indicator: evalData.radar.data.dimensions.map((d) => ({ name: d, max: 100 })),
+      indicator: evalData.radar?.data?.dimensions?.map((d) => ({ name: d, max: 100 })) || [],
       shape: 'circle',
       splitNumber: 5,
       axisName: { color: '#7c3aed', fontSize: 12 },
@@ -82,7 +96,7 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
     series: [{
       type: 'radar',
       data: [{
-        value: evalData.radar.data.scores,
+        value: evalData.radar?.data?.scores || [],
         name: '本次得分',
         areaStyle: { color: 'rgba(139,92,246,0.25)' },
         lineStyle: { color: '#7c3aed', width: 3 },
@@ -107,11 +121,11 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#7c3aed' } },
       labelLine: { show: false },
-      data: evalData.pie.data.points.map((p, i) => ({
+      data: evalData.pie?.data?.points?.map((p, i) => ({
         value: p.value,
         name: p.label,
         itemStyle: { color: ['#a78bfa', '#c4b5fd', '#7c3aed'][i % 3] }
-      }))
+      })) || []
     }],
     animation: true,
     animationDuration: 1200
@@ -123,7 +137,7 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
     tooltip: { trigger: 'axis', formatter: (params: any) => `${params[0].name}: ${(params[0].value * 100).toFixed(1)}%` },
     xAxis: {
       type: 'category',
-      data: evalData.bar.data.labels,
+      data: evalData.bar?.data?.labels || [],
       axisLine: { lineStyle: { color: '#a78bfa' } },
       axisLabel: { color: '#7c3aed', fontWeight: 500 }
     },
@@ -135,7 +149,7 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
       splitLine: { lineStyle: { color: '#ede9fe' } }
     },
     series: [{
-      data: evalData.bar.data.accuracy,
+      data: evalData.bar?.data?.accuracy || [],
       type: 'bar',
       barWidth: 32,
       itemStyle: {
@@ -262,14 +276,21 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
                     style={{ height: '120px', width: '120px' }}
                   />
                   <div className="text-5xl font-extrabold text-purple-700 drop-shadow mb-2 flex items-end gap-2">
-                    {evalData.score}
+                    {evalData.score || 0}
                     <span className="text-lg font-medium text-purple-400 mb-1">分</span>
                   </div>
                   <div className="text-sm text-purple-600 font-semibold mb-1">本次综合得分</div>
-                  <div className="text-xs text-purple-500">较上次{evalData.lastCompare.scoreChange >= 0 ? '提升' : '下降'}
-                    <span className={evalData.lastCompare.scoreChange >= 0 ? 'text-green-600' : 'text-red-500'}>
-                      {evalData.lastCompare.scoreChange >= 0 ? '+' : ''}{evalData.lastCompare.scoreChange}
-                    </span>分
+                  <div className="text-xs text-purple-500">
+                    {evalData.lastCompare?.scoreChange !== undefined ? (
+                      <>
+                        较上次{evalData.lastCompare.scoreChange >= 0 ? '提升' : '下降'}
+                        <span className={evalData.lastCompare.scoreChange >= 0 ? 'text-green-600' : 'text-red-500'}>
+                          {evalData.lastCompare.scoreChange >= 0 ? '+' : ''}{evalData.lastCompare.scoreChange}
+                        </span>分
+                      </>
+                    ) : (
+                      '暂无对比数据'
+                    )}
                   </div>
                 </motion.div>
                 {/* 右侧图表与评语 */}
@@ -282,17 +303,17 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
                   {/* 雷达图 */}
                   <div className="bg-white/90 rounded-2xl p-4 border border-purple-200 shadow flex flex-col">
                     <ReactECharts option={radarOption} style={{ height: 220 }} opts={{ renderer: 'canvas' }} />
-                    <div className="text-xs text-purple-500 mt-2 text-center min-h-[32px]">{evalData.radar.comment}</div>
+                    <div className="text-xs text-purple-500 mt-2 text-center min-h-[32px]">{evalData.radar?.comment || ''}</div>
                   </div>
                   {/* 饼图 */}
                   <div className="bg-white/90 rounded-2xl p-4 border border-purple-200 shadow flex flex-col">
                     <ReactECharts option={pieOption} style={{ height: 220 }} opts={{ renderer: 'canvas' }} />
-                    <div className="text-xs text-purple-500 mt-2 text-center min-h-[32px]">{evalData.pie.comment}</div>
+                    <div className="text-xs text-purple-500 mt-2 text-center min-h-[32px]">{evalData.pie?.comment || ''}</div>
                   </div>
                   {/* 柱状图 */}
                   <div className="bg-white/90 rounded-2xl p-4 border border-purple-200 shadow flex flex-col">
                     <ReactECharts option={barOption} style={{ height: 220 }} opts={{ renderer: 'canvas' }} />
-                    <div className="text-xs text-purple-500 mt-2 text-center min-h-[32px]">{evalData.bar.comment}</div>
+                    <div className="text-xs text-purple-500 mt-2 text-center min-h-[32px]">{evalData.bar?.comment || ''}</div>
                   </div>
                 </motion.div>
               </div>
@@ -305,11 +326,11 @@ export default function EvaluationModal({ open, onClose, data }: EvaluationModal
               >
                 <div className="flex-1">
                   <div className="text-sm font-bold text-purple-700 mb-1">STAR结构总结</div>
-                  <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{evalData.summary.starStructure}</div>
+                  <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{evalData.summary?.starStructure || ''}</div>
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-bold text-purple-700 mb-1">技术能力总结</div>
-                  <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{evalData.summary.technicalSummary}</div>
+                  <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{evalData.summary?.technicalSummary || ''}</div>
                 </div>
               </motion.div>
             </Dialog.Panel>

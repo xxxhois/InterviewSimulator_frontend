@@ -887,7 +887,7 @@ export default function InterviewRoom() {
         </button>
         <button
           className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg transition-all text-sm md:text-base"
-          onClick={() => router.push('/interview/test')}
+          onClick={() => router.push(`/interview/test/?interview_id=${interview_id}`)}
         >
           结束面试
         </button>
