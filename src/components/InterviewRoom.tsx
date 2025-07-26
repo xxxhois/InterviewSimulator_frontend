@@ -7,7 +7,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { DIGITAL_HUMAN_CONFIG } from '@/api/digitalHuman';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 
 // 动态引入 Monaco Editor，避免 SSR 问题
@@ -49,6 +49,7 @@ function downsampleBuffer(buffer: Float32Array, sampleRate: number, outRate: num
 }
 
 export default function InterviewRoom() {
+  const router = useRouter();
   // 使用 next/navigation 提供的 useSearchParams 钩子获取参数
   const searchParams = useSearchParams();
 
@@ -875,14 +876,22 @@ export default function InterviewRoom() {
 
   return (
     <div className="h-screen w-screen bg-gray-900 text-white flex flex-col md:flex-row relative overflow-hidden">
-      {/* 展开/收起按钮 */}
-      <button
-        className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg transition-all md:top-6 md:right-6 md:px-5 md:py-2.5 text-sm md:text-base"
-        onClick={() => setShowEditor(v => !v)}
-        aria-label={showEditor ? '收起代码区' : '展开代码区'}
-      >
-        {showEditor ? '收起代码区' : '展开代码区'}
-      </button>
+      {/* 按钮上下排列 */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
+        <button
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg transition-all text-sm md:text-base"
+          onClick={() => setShowEditor(v => !v)}
+          aria-label={showEditor ? '收起代码区' : '展开代码区'}
+        >
+          {showEditor ? '收起代码区' : '展开代码区'}
+        </button>
+        <button
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg transition-all text-sm md:text-base"
+          onClick={() => router.push('/interview/test')}
+        >
+          结束面试
+        </button>
+      </div>
 
       {/* 左侧：问题区 */}
       <div
