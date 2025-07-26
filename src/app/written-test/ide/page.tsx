@@ -304,7 +304,7 @@ export default function WrittenTestPage() {
       <div className="bg-gray-800 border-b border-gray-700 px-6 py-3">
         <div className="flex justify-between items-center">
           <h1 className="text-lg font-semibold text-purple-400">
-            {user.username} 的笔试
+            {user || '用户'} 的笔试
           </h1>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-400">当前题目: {problemData.title}</span>
