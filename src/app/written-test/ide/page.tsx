@@ -1,6 +1,7 @@
 'use client';
 
 import { runCode } from '@/api/code';
+import { useAuthStore } from '@/store/authStore';
 import Editor from '@monaco-editor/react';
 import { useState } from 'react';
 
@@ -154,7 +155,7 @@ export default function WrittenTestPage() {
   const [expandedPublicCases, setExpandedPublicCases] = useState<number[]>([]);
 
   // 模拟用户数据
-  const user = { username: "张三" };
+  const user = useAuthStore().user?.username;
 
   const handleLanguageChange = (langId: number) => {
     const lang = languages.find((l) => l.id === langId);

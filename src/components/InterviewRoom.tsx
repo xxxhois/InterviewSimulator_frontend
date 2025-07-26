@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-// Copy all imports from page.tsx
+import { createDigitalHuman, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
+import { runCode } from '@/api/code';
+import { RTCPlayer } from '@/lib/rtcplayer';
+import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { DIGITAL_HUMAN_CONFIG } from '@/api/digitalHuman';
+import { useSearchParams } from 'next/navigation';
+
 
 // 动态引入 Monaco Editor，避免 SSR 问题
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
-// Copy the entire InterviewPageContent function and all its logic here, but rename it to InterviewRoomClient
-'use client';
-
-import { runCode } from '@/api/code';
-import { DIGITAL_HUMAN_CONFIG, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
-import { RTCPlayer } from '@/lib/rtcplayer';
-import { Dialog, Transition } from '@headlessui/react';
-import { useSearchParams } from 'next/navigation';
-import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
-
-
 // 预留：当前问题、提示、历史、视频流等接口
+const mockQuestion = {
+  title: '请实现一个斐波那契数列函数',
+  hint: '递归或动态规划均可，注意边界条件。',
+};
 
 const languageOptions = [
   { label: 'Plain Text', value: 'plaintext' },
@@ -48,8 +48,7 @@ function downsampleBuffer(buffer: Float32Array, sampleRate: number, outRate: num
   return result;
 }
 
-// 内部组件，使用 useSearchParams
-function InterviewRoomContent() {
+export default function InterviewRoom() {
   // 使用 next/navigation 提供的 useSearchParams 钩子获取参数
   const searchParams = useSearchParams();
 
@@ -75,47 +74,42 @@ function InterviewRoomContent() {
   const [isDigitalHumanInitializing, setIsDigitalHumanInitializing] = useState(false);
 
   // 视频/音频/WebSocket相关ref
-  const videoRef = useRef<any>(null);
-  const digitalHumanContainerRef = useRef<any>(null);
-  const wsRef = useRef<any>(null);
-  const localStreamRef = useRef<any>(null);
-  const audioContextRef = useRef<any>(null);
-  const inputRef = useRef<any>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const digitalHumanContainerRef = useRef<HTMLDivElement | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const inputRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const resampleBufferRef: React.MutableRefObject<number[]> = useRef([]);
   
   // 视频帧采集相关ref
-  const canvasRef = useRef<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoFrameIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // RTCPlayer实例
   const rtcPlayerRef = useRef<InstanceType<typeof RTCPlayer> | null>(null);
 
   // 数字人服务实例
-  const digitalHumanService = useRef<any>(null);
+  const digitalHumanService = useRef(createDigitalHuman());
 
   // 采集与转写
   const startCollect = async () => {
-    if (typeof window === 'undefined') return;
 
     setTranscript('转写内容将实时显示在这里...');
     setQuestion('面试官问题将显示在这里');
     // 获取音视频流
-    if (typeof window === 'undefined' || !(window as any).navigator?.mediaDevices) return;
-    const localStream = await (window as any).navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localStreamRef.current = localStream;
     if (videoRef.current) {
-      videoRef.current.srcObject = localStream;
+      (videoRef.current as HTMLVideoElement).srcObject = localStream as MediaStream;
     }
     // 连接WebSocket
-    let token = '';
-    if (typeof window !== 'undefined') {
-      token = (window as any).localStorage.getItem('auth_token') || '';
-    }
+    let token = localStorage.getItem('auth_token') || '';
     console.log('token', token);
     //let ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
     let ws_url = 'ws://localhost:8000/ws/webrtc/?token=' + token;
     console.log('ws_url', ws_url);
-    const ws = new (window as any).WebSocket(ws_url);
+    const ws = new window.WebSocket(ws_url);
     wsRef.current = ws;
           ws.onopen = () => {
         setIsRecording(true);
@@ -132,7 +126,7 @@ function InterviewRoomContent() {
           "resume_id": resume_id
         }));
       };
-    ws.onmessage = (event: any) => {
+    ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         console.log('收到消息', data);
@@ -191,13 +185,12 @@ function InterviewRoomContent() {
   };
 
   async function startAudioProcessing() {
-    if (typeof window === 'undefined') return;
-    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     const audioContext = new AudioCtx() as AudioContext;
     audioContextRef.current = audioContext;
     await audioContext.audioWorklet.addModule('/recorder-worklet.js');
-    const workletNode = new (window as any).AudioWorkletNode(audioContext, 'recorder-worklet');
-    workletNode.port.onmessage = (event: any) => {
+    const workletNode = new AudioWorkletNode(audioContext, 'recorder-worklet');
+    workletNode.port.onmessage = (event) => {
       const inputData = event.data; // Float32Array
       const inputSampleRate = audioContext.sampleRate;
       const targetSampleRate = 16000;
@@ -213,12 +206,12 @@ function InterviewRoomContent() {
         pcmBytes[2 * i] = pcm[i] & 0xff;
         pcmBytes[2 * i + 1] = (pcm[i] >> 8) & 0xff;
       }
-      let base64String = (window as any).btoa(String.fromCharCode.apply(null, Array.from(pcmBytes)));
+      let base64String = btoa(String.fromCharCode.apply(null, Array.from(pcmBytes)));
       if (wsRef.current && wsRef.current.readyState === 1) {
         wsRef.current.send(JSON.stringify({ type: 'audio_frame', audio_data: base64String }));
       }
     };
-    const input = audioContext.createMediaStreamSource(localStreamRef.current);
+    const input = audioContext.createMediaStreamSource(localStreamRef.current as MediaStream);
     inputRef.current = input;
     input.connect(workletNode);
     workletNode.connect(audioContext.destination);
@@ -242,8 +235,6 @@ function InterviewRoomContent() {
 
   // 开始视频帧采集
   const startVideoFrameCapture = () => {
-    if (typeof window === 'undefined') return;
-    
     if (!videoRef.current || !canvasRef.current) {
       console.error('视频元素或画布元素不存在');
       return;
@@ -265,16 +256,16 @@ function InterviewRoomContent() {
     console.log(`开始视频帧采集，画布尺寸: ${canvas.width}x${canvas.height}`);
 
     // 每秒采集一帧视频
-    videoFrameIntervalRef.current = (window as any).setInterval(() => {
+    videoFrameIntervalRef.current = setInterval(() => {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         try {
           // 将视频帧绘制到画布上
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           
           // 将画布内容转换为blob并发送
-          canvas.toBlob((blob: any) => {
+          canvas.toBlob(blob => {
             if (blob && wsRef.current && wsRef.current.readyState === 1) {
-              const reader = new (window as any).FileReader();
+              const reader = new FileReader();
               reader.onloadend = function() {
                 try {
                   const base64data = reader.result?.toString().split(',')[1];
@@ -309,23 +300,19 @@ function InterviewRoomContent() {
 
   // 停止视频帧采集
   const stopVideoFrameCapture = () => {
-    if (typeof window === 'undefined') return;
-    
     if (videoFrameIntervalRef.current) {
-      (window as any).clearInterval(videoFrameIntervalRef.current);
+      clearInterval(videoFrameIntervalRef.current);
       videoFrameIntervalRef.current = null;
       console.log('视频帧采集已停止');
     }
   };
 
   const stopCollect = () => {
-    if (typeof window === 'undefined') return;
-    
     setIsRecording(false);
     setIsVideoConnected(false); // 重置视频连接状态
     if (wsRef.current) wsRef.current.close();
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track: any) => track.stop());
+      localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
     stopAudioProcessing();
@@ -335,15 +322,11 @@ function InterviewRoomContent() {
 
   // 预留：获取历史记录的异步接口
   async function getHistoryList() {
-    if (typeof window === 'undefined') return;
-    
     setHistoryList([]);
   }
 
   // 初始化RTCPlayer
   const initializeRTCPlayer = (streamInfo: any) => {
-    if (typeof window === 'undefined') return;
-    
     console.log('=== 开始初始化RTCPlayer ===');
     console.log('容器元素:', digitalHumanContainerRef.current);
     console.log('流信息:', JSON.stringify(streamInfo, null, 2));
@@ -458,8 +441,6 @@ function InterviewRoomContent() {
 
   // 数字人相关功能
   const initializeDigitalHuman = async () => {
-    if (typeof window === 'undefined') return;
-    
     console.log('初始化数字人服务');
     setIsDigitalHumanInitializing(true);
     try {
@@ -525,7 +506,7 @@ function InterviewRoomContent() {
             
             // 在数字人连接成功后，主动激活音频上下文
             console.log('数字人连接成功，主动激活音频上下文...');
-            (window as any).setTimeout(() => {
+            setTimeout(() => {
               testAudioPlayback(false); // 静默激活，不显示弹窗
             }, 1000); // 延迟1秒确保RTCPlayer初始化完成
             
@@ -632,8 +613,6 @@ function InterviewRoomContent() {
 
   // 播放数字人音频
   const playDigitalHumanAudio = async (audio: DigitalHumanAudio) => {
-    if (typeof window === 'undefined') return;
-    
     try {
       console.log('=== 开始播放数字人音频 ===');
       console.log('音频格式:', audio.format);
@@ -644,7 +623,7 @@ function InterviewRoomContent() {
       //testAudioPlayback(false); // 静默激活音频上下文
       
       // 等待一小段时间确保音频上下文完全激活
-      await new Promise(resolve => (window as any).setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       setIsDigitalHumanSpeaking(true);
       
@@ -660,12 +639,11 @@ function InterviewRoomContent() {
 
   // 测试音频播放功能
   const testAudioPlayback = (showAlert: boolean = true) => {
-    if (typeof window === 'undefined') return;
     try {
       console.log('=== 测试音频播放功能 ===');
       
       // 创建音频上下文
-      const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       console.log('音频上下文状态:', audioContext.state);
       
       // 如果音频上下文被暂停，尝试恢复
@@ -674,26 +652,26 @@ function InterviewRoomContent() {
         audioContext.resume().then(() => {
           console.log('音频上下文已恢复，状态:', audioContext.state);
           playTestTone(audioContext, showAlert);
-        }).catch((error: any) => {
+        }).catch(error => {
           console.error('恢复音频上下文失败:', error);
           if (showAlert) {
-            (window as any).alert('无法恢复音频上下文，请检查浏览器设置');
+            alert('无法恢复音频上下文，请检查浏览器设置');
           }
         });
       } else {
         playTestTone(audioContext, showAlert);
       }
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('测试音频播放失败:', error);
       if (showAlert) {
-        (window as any).alert('测试音频播放失败: ' + error);
+        alert('测试音频播放失败: ' + error);
       }
     }
   };
 
   // 播放测试音调
-  const playTestTone = (audioContext: any, showAlert: boolean = true) => {
+  const playTestTone = (audioContext: AudioContext, showAlert: boolean = true) => {
     try {
       // 创建一个简单的测试音调
       const oscillator = audioContext.createOscillator();
@@ -710,21 +688,19 @@ function InterviewRoomContent() {
       
       console.log('测试音调开始播放');
       if (showAlert) {
-        (window as any).alert('测试音调播放成功！如果听到声音，说明音频功能正常。');
+        alert('测试音调播放成功！如果听到声音，说明音频功能正常。');
       }
       
     } catch (error) {
       console.error('播放测试音调失败:', error);
       if (showAlert) {
-        (window as any).alert('播放测试音调失败: ' + error);
+        alert('播放测试音调失败: ' + error);
       }
     }
   };
 
   // 处理欢迎弹窗关闭
   const handleWelcomeModalClose = () => {
-    if (typeof window === 'undefined') return;
-    
     console.log('用户关闭欢迎弹窗，激活音频上下文...');
     
     // 激活音频上下文
@@ -747,8 +723,6 @@ function InterviewRoomContent() {
 
   // 发送文本给数字人
   const sendTextToDigitalHuman = async (text: string) => {
-    if (typeof window === 'undefined') return;
-    
     console.log('=== 尝试发送文本给数字人 ===');
     console.log('文本内容:', text);
     console.log('数字人连接状态:', isDigitalHumanConnected);
@@ -783,8 +757,6 @@ function InterviewRoomContent() {
 
   // 手动播放数字人视频（用于测试）
   const playDigitalHumanVideo = () => {
-    if (typeof window === 'undefined') return;
-    
     console.log('尝试播放数字人视频');
     if (streamInfo) {
       console.log('使用流信息:', streamInfo);
@@ -807,15 +779,6 @@ function InterviewRoomContent() {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    // 初始化数字人服务
-    if (!digitalHumanService.current) {
-      import('@/api/digitalHuman').then(({ createDigitalHuman }) => {
-        digitalHumanService.current = createDigitalHuman();
-      });
-    }
-    
     // 页面初始化时获取历史记录
     getHistoryList();
     // 数字人服务将在用户交互后初始化
@@ -824,9 +787,7 @@ function InterviewRoomContent() {
       stopCollect();
       stopVideoFrameCapture(); // 确保停止视频帧采集
       // 关闭数字人服务
-      if (digitalHumanService.current) {
-        digitalHumanService.current.disconnect();
-      }
+      digitalHumanService.current.disconnect();
       // 关闭RTCPlayer
       if (rtcPlayerRef.current) {
         rtcPlayerRef.current.destroy();
@@ -836,8 +797,6 @@ function InterviewRoomContent() {
 
   // 添加CSS样式来截取数字人上半部分
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
     const addVideoStyles = () => {
       const styleId = 'digital-human-video-styles';
       if (document.getElementById(styleId)) {
@@ -864,10 +823,10 @@ function InterviewRoomContent() {
     };
 
     // 延迟添加样式，确保容器已存在
-    const timer = (window as any).setTimeout(addVideoStyles, 1000);
+    const timer = setTimeout(addVideoStyles, 1000);
     
     return () => {
-      (window as any).clearTimeout(timer);
+      clearTimeout(timer);
       const style = document.getElementById('digital-human-video-styles');
       if (style) {
         style.remove();
@@ -890,8 +849,6 @@ function InterviewRoomContent() {
 
   // 运行代码
   async function handleRunCode() {
-    if (typeof window === 'undefined') return;
-    
     setIsRunning(true);
     setRunResult('');
     try {
@@ -940,6 +897,13 @@ function InterviewRoomContent() {
           >
             {question}
           </div>
+          {/* <div className="text-gray-400 text-sm font-semibold mb-1">面试官问题</div>
+          <div
+            className="text-gray-300 text-sm break-words whitespace-pre-line max-w-full"
+            style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
+          >
+            {mockQuestion.title}
+          </div> */}
         </div>
         <div className="sticky bottom-0 left-0 right-0 bg-gray-800 p-4 flex flex-col gap-2 z-10 border-t border-gray-700">
           <button
@@ -1040,6 +1004,9 @@ function InterviewRoomContent() {
             <span className={`ml-2 px-2 py-1 rounded text-xs ${isDigitalHumanConnected ? 'bg-green-600' : isDigitalHumanInitializing ? 'bg-yellow-600' : 'bg-red-600'}`}>
               {isDigitalHumanConnected ? '已连接' : isDigitalHumanInitializing ? '连接中...' : '未连接'}
             </span>
+            {/* <span className={`ml-2 px-2 py-1 rounded text-xs ${isAudioActivated ? 'bg-blue-600' : 'bg-yellow-600'}`}>
+              {isAudioActivated ? '音频已激活' : '音频未激活'}
+            </span> */}
           </div>
           
           {/* RTCPlayer容器 */}
@@ -1089,7 +1056,50 @@ function InterviewRoomContent() {
           
           {/* 数字人控制区域 */}
           <div className="w-full space-y-2 mb-4">
+            {/* <div className="text-xs text-gray-400 mb-1">数字人文本</div>
+            <textarea
+              className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white resize-none h-16"
+              value={digitalHumanText}
+              onChange={(e) => setDigitalHumanText(e.target.value)}
+              placeholder="输入要转换为语音的文本..."
+            /> */}
             <div className="mt-2 text-xs text-gray-300 min-h-[1.5em]">{digitalHumanText}</div>
+            {/* <div className="flex space-x-2">
+              <button
+                className={`px-3 py-1 rounded text-xs font-medium ${
+                  isDigitalHumanConnected && isAudioActivated
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => sendTextToDigitalHuman(digitalHumanText)}
+                disabled={!isDigitalHumanConnected || !isAudioActivated || !digitalHumanText.trim() || isDigitalHumanInitializing}
+              >
+                播放语音
+              </button>
+              <button
+                className={`px-3 py-1 rounded text-xs font-medium ${
+                  isDigitalHumanConnected && isAudioActivated
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => sendTextToDigitalHuman('你好，我是数字人面试官，很高兴见到你！')}
+                disabled={!isDigitalHumanConnected || !isAudioActivated || isDigitalHumanInitializing}
+              >
+                测试语音
+              </button>
+              <button
+                className="px-3 py-1 rounded text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={playDigitalHumanVideo}
+              >
+                播放视频
+              </button>
+              <button
+                className="px-3 py-1 rounded text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={() => testAudioPlayback(true)}
+              >
+                测试音频
+              </button>
+            </div> */}
           </div>
         </div>
 
@@ -1258,26 +1268,5 @@ function InterviewRoomContent() {
         </Dialog>
       </Transition>
     </div>
-  );
-}
-
-// 加载状态组件
-function InterviewRoomFallback() {
-  return (
-    <div className="h-screen w-screen bg-gray-900 text-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-        <p className="text-gray-400">加载面试房间...</p>
-      </div>
-    </div>
-  );
-}
-
-// 主组件，使用 Suspense 包装
-export default function InterviewRoomClient() {
-  return (
-    <Suspense fallback={<InterviewRoomFallback />}>
-      <InterviewRoomContent />
-    </Suspense>
   );
 }
