@@ -71,7 +71,9 @@ export default function InterviewBookingPage() {
     if (!selectedPositionObj || !resume) {
       setSubmitting(false);
       // @ts-ignore
-      window.toast && window.toast('请选择岗位和简历', { type: 'error' });
+      if (typeof window !== 'undefined' && (window as any).toast) {
+        (window as any).toast('请选择岗位和简历', { type: 'error' });
+      }
       console.log('岗位或简历未选', { selectedPositionObj, resume });
       return;
     }
@@ -90,14 +92,18 @@ export default function InterviewBookingPage() {
       setSubmitting(false);
       console.log('创建面试返回', res);
       // @ts-ignore
-      window.toast && window.toast('预约成功！', { type: 'success' });
+      if (typeof window !== 'undefined' && (window as any).toast) {
+        (window as any).toast('预约成功！', { type: 'success' });
+      }
       if (mode === 'now' && res && res.id) {
         router.push(`/interview/room/?id=${res.id}&resume_id=${resume.resume_id}`);
       }
     } catch (err: any) {
       setSubmitting(false);
       // @ts-ignore
-      window.toast && window.toast(err.message || '预约失败', { type: 'error' });
+      if (typeof window !== 'undefined' && (window as any).toast) {
+        (window as any).toast(err.message || '预约失败', { type: 'error' });
+      }
       console.error('创建面试失败', err);
     }
   };

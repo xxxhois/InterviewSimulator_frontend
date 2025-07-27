@@ -497,7 +497,9 @@ export default function ProfilePage() {
                   });
                   setShowSidebar(false);
                   // 刷新资料
-                  window.location.reload();
+                  if (typeof window !== 'undefined') {
+                    window.location.reload();
+                  }
                 }}
               >
                 更新资料

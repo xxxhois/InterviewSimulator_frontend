@@ -5,10 +5,16 @@ import type { EvaluationResult } from '@/types/evaluation';
 import { Dialog, Transition } from '@headlessui/react';
 import { Player } from '@lottiefiles/react-lottie-player';
 import { motion } from 'framer-motion';
-import html2canvas from 'html2canvas';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState, Suspense } from 'react';
+import { useEffect, useRef, useState } from 'react';
+// 动态导入 html2canvas，避免 SSR 问题
+let html2canvas: any = null;
+if (typeof window !== 'undefined') {
+  import('html2canvas').then(module => {
+    html2canvas = module.default;
+  });
+}
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
@@ -170,7 +176,7 @@ export default function EvaluationModal({ open, onClose }: EvaluationModalProps)
 
   // 导出图片
   const handleExport = async () => {
-    if (!contentRef.current) return;
+    if (!contentRef.current || typeof window === 'undefined') return;
     setExporting(true);
     const panel = contentRef.current;
     // 递归替换所有oklch为rgb
@@ -203,6 +209,13 @@ export default function EvaluationModal({ open, onClose }: EvaluationModalProps)
     walk(panel);
     try {
       await new Promise(res => setTimeout(res, 300));
+      
+      // 确保 html2canvas 已加载
+      if (!html2canvas) {
+        const module = await import('html2canvas');
+        html2canvas = module.default;
+      }
+      
       const canvas = await html2canvas(panel, { backgroundColor: null, useCORS: true });
       const link = document.createElement('a');
       link.download = '面评报告.png';

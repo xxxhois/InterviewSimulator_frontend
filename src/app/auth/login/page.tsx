@@ -6,22 +6,53 @@ import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
-// loading fallback
+// loading fallback - 使用和原来页面一样的样式
 function LoginFormFallback() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-100 to-purple-200 flex items-center justify-center">
-      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded mb-6"></div>
-          <div className="space-y-4">
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
+      <motion.div
+        className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h2 className="text-3xl font-bold text-purple-800 mb-6 text-center">登录账号</h2>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-purple-700 mb-1">用户名</label>
+            <input
+              type="text"
+              placeholder="请输入用户名"
+              className="w-full px-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              disabled
+            />
           </div>
+          
+          <div>
+            <label className="block text-sm text-purple-700 mb-1">密码</label>
+            <input
+              type="password"
+              placeholder="********"
+              className="w-full px-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              disabled
+            />
+          </div>
+
+          <button
+            type="button"
+            disabled
+            className="w-full py-2 rounded-lg font-semibold bg-gray-400 cursor-not-allowed"
+          >
+            加载中...
+          </button>
+
+          <p className="text-sm text-center text-gray-600 mt-4">
+            还没有账号？
+            <span className="text-purple-700 font-medium ml-1">去注册</span>
+          </p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -45,8 +76,10 @@ function LoginForm() {
     if (message) {
       setSuccessMessage(message);
       // 清除URL参数
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
+      if (typeof window !== 'undefined') {
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
     }
   }, [searchParams]);
 
@@ -111,12 +144,13 @@ function LoginForm() {
   };
 
   return (
-    <motion.div
-      className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md"
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="min-h-screen bg-gradient-to-b from-purple-100 to-purple-200 flex items-center justify-center">
+      <motion.div
+        className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
       <h2 className="text-3xl font-bold text-purple-800 mb-6 text-center">登录账号</h2>
 
       {successMessage && (
@@ -191,7 +225,8 @@ function LoginForm() {
           </span>
         </p>
       </form>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 

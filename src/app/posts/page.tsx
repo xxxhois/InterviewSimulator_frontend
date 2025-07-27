@@ -22,7 +22,9 @@ export default function PostsPage() {
       setContent('');
       setSidebarOpen(false);
       // 可选：刷新帖子列表
-      window.location.reload();
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
     } catch (err: any) {
       setError('发帖失败，请重试');
     } finally {

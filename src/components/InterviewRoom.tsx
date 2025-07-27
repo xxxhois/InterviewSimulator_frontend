@@ -1,13 +1,12 @@
 'use client';
 
-import { createDigitalHuman, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
 import { runCode } from '@/api/code';
+import { createDigitalHuman, DIGITAL_HUMAN_CONFIG, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
 import { RTCPlayer } from '@/lib/rtcplayer';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { DIGITAL_HUMAN_CONFIG } from '@/api/digitalHuman';
-import { useSearchParams, useRouter } from 'next/navigation';
 
 
 // 动态引入 Monaco Editor，避免 SSR 问题
@@ -105,6 +104,8 @@ export default function InterviewRoom() {
       (videoRef.current as HTMLVideoElement).srcObject = localStream as MediaStream;
     }
     // 连接WebSocket
+    if (typeof window === 'undefined') return; // 确保在客户端运行
+    
     let token = localStorage.getItem('auth_token') || '';
     console.log('token', token);
     //let ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -186,6 +187,8 @@ export default function InterviewRoom() {
   };
 
   async function startAudioProcessing() {
+    if (typeof window === 'undefined') return; // 确保在客户端运行
+    
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     const audioContext = new AudioCtx() as AudioContext;
     audioContextRef.current = audioContext;
