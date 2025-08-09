@@ -150,7 +150,6 @@ export default function InterviewBookingPage() {
 
           {/* 目标岗位选择 */}
           <div>
-            <label className="block text-gray-300 font-semibold mb-2">目标岗位</label>
             <div>
               <label className="block text-gray-300 font-semibold mb-2">目标岗位</label>
               <button

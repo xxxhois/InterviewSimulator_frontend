@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 // 动态导入echarts组件以避免SSR问题
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+//const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
   const features: Array<{
     title: string;
