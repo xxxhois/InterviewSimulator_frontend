@@ -7,6 +7,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { showToast } from '@/components/Toast';
 
 
 // 动态引入 Monaco Editor，避免 SSR 问题
@@ -91,7 +92,6 @@ export default function InterviewRoom() {
 
   // 数字人服务实例
   const digitalHumanService = useRef(createDigitalHuman());
-
   // 采集与转写
   const startCollect = async () => {
 
@@ -171,7 +171,12 @@ export default function InterviewRoom() {
           } catch (e) {}
           setQuestion(text || '面试官问题将显示在这里');
           sendTextToDigitalHuman(text);
-        }else if (data.type === 'connection_established') {
+        }
+        else if(data.type === 'cheat_detected'){
+          // 作弊弹窗
+          showToast('检测到多人同框作弊行为，请诚信面试');
+        }
+        else if (data.type === 'connection_established') {
           setIsVideoConnected(true);
         }
       } catch (e) {
@@ -627,7 +632,7 @@ export default function InterviewRoom() {
       //testAudioPlayback(false); // 静默激活音频上下文
       
       // 等待一小段时间确保音频上下文完全激活
-      await new Promise(resolve => setTimeout(resolve, 200));
+      //await new Promise(resolve => setTimeout(resolve, 200));
       
       setIsDigitalHumanSpeaking(true);
       
