@@ -205,6 +205,15 @@ export default function InterviewRoom() {
         else if (data.type === 'interview_finished') {
           showToast('所有题目已结束，请等待面试官评分');
           setIsInterviewFinished(true);
+          // stopCollect();
+          // stopVideoFrameCapture(); // 确保停止视频帧采集
+          // // 关闭数字人服务
+          // digitalHumanService.current.disconnect();
+          // // 关闭RTCPlayer
+          // if (rtcPlayerRef.current) {
+          //   rtcPlayerRef.current.destroy();
+          // }
+          router.push(`/interview/test/?interview_id=${interview_id}`);
         }
       } catch (e) {
         // 非JSON消息忽略
@@ -786,6 +795,7 @@ export default function InterviewRoom() {
       await digitalHumanService.current.textToSpeech(request);
       console.log('发送文本给数字人成功');
       setDigitalHumanText(text);
+      
     } catch (error) {
       console.error('发送文本给数字人失败:', error);
     }

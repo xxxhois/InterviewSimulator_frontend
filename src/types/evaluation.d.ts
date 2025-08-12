@@ -31,6 +31,13 @@ export type EvaluationLastCompare = {
   radarDelta: number[];   // 各维度分数变化
 };
 
+export type EvaluationQuestionAnalysis = {
+  question: string;
+  answer: string;
+  ai_analysis?: string;
+  knowledge_points: string[];
+};
+
 export type EvaluationSummary = {
   starStructure: string;      // STAR结构总结
   technicalSummary: string;   // 技术总结
@@ -41,8 +48,9 @@ export type EvaluationResult = {
   pie: EvaluationPie;
   bar: EvaluationBar;
   score: number;                  // 总分
-  lastCompare: EvaluationLastCompare;
+  lastCompare: EvaluationLastCompare | null;
   summary: EvaluationSummary;
+  question_analysis: EvaluationQuestionAnalysis[];
 };
 
 // 用户总体能力评估（个人主页展示）类型定义
