@@ -77,10 +77,18 @@ export default function InterviewBookingPage() {
       console.log('岗位或简历未选', { selectedPositionObj, resume });
       return;
     }
+    // 处理预约时间：转换为UTC+8时区
+    let interviewTime = undefined;
+    if (mode === 'reserve' && reserveTime) {
+      // reserveTime 是本地时间，直接发送给后端
+      // 后端会将其视为UTC+8时区的时间
+      interviewTime = reserveTime + ':00';
+    }
+
     const params = {
       job_position_id: Number(selectedPosition),
       resume_id: resume.resume_id,
-      interview_time: mode === 'reserve' ? reserveTime : undefined,
+      interview_time: interviewTime,
       position_name: selectedPositionObj.position_name,
       // position_type: selectedPositionObj.position_type,
       //company_name: selectedPositionObj.company_name,
@@ -95,8 +103,14 @@ export default function InterviewBookingPage() {
       if (typeof window !== 'undefined' && (window as any).toast) {
         (window as any).toast('预约成功！', { type: 'success' });
       }
+      
+      // 根据模式决定跳转
       if (mode === 'now' && res && res.id) {
+        // 立即面试：跳转到面试房间
         router.push(`/interview/room/?id=${res.id}&resume_id=${resume.resume_id}`);
+      } else if (mode === 'reserve' && res && res.id) {
+        // 预约面试：跳转到dashboard
+        router.push('/dashboard');
       }
     } catch (err: any) {
       setSubmitting(false);

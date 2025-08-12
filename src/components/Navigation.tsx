@@ -1,10 +1,10 @@
 'use client';
 
-import { motion } from "framer-motion";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
 import { getInterviewList } from '@/api/interview';
 import { Dialog } from '@headlessui/react';
+import { motion } from "framer-motion";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 interface NavItem {
   name: string;
@@ -44,7 +44,9 @@ export default function Navigation() {
           .sort((a, b) => a.date.getTime() - b.date.getTime());
         if (future.length > 0) {
           setNextInterview({ time: future[0].interview_time, id: future[0].id });
-          const ms = future[0].date.getTime() - now.getTime();
+          // 计算倒计时：使用本地时间比较
+          const interviewDate = new Date(future[0].interview_time);
+          const ms = interviewDate.getTime() - now.getTime();
           if (timerRef.current) clearTimeout(timerRef.current);
           timerRef.current = setTimeout(() => setShowModal(true), ms);
         }
@@ -107,18 +109,24 @@ export default function Navigation() {
               </div>
             </div>
             
-            <motion.div 
-              className="flex items-center space-x-4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <div className="bg-gradient-to-r from-purple-400 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                {nextInterview
-                  ? `下场面试: ${new Date(nextInterview.time).toLocaleString().replace(/:\d{2}$/, '')}`
-                  : "暂无面试"}
-              </div>
-            </motion.div>
+                         <motion.div 
+               className="flex items-center space-x-4"
+               initial={{ opacity: 0, x: 20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ duration: 0.8, delay: 0.2 }}
+             >
+               <div className="bg-gradient-to-r from-purple-400 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                 {nextInterview
+                   ? `下场面试: ${new Date(nextInterview.time).toLocaleString('zh-CN', { 
+                       year: 'numeric', 
+                       month: '2-digit', 
+                       day: '2-digit',
+                       hour: '2-digit', 
+                       minute: '2-digit'
+                     })}`
+                   : "暂无面试"}
+               </div>
+             </motion.div>
           </div>
         </div>
       </nav>

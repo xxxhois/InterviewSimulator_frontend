@@ -134,234 +134,234 @@ const MainDashboard = () => {
     });
   }, []);
 
-  // ECharts配置 - 能力雷达图
-  const skillMatchOption = {
-    title: {
-      text: '能力雷达图',
-      textStyle: {
-        color: '#7c3aed',
-        fontSize: 14,
-        fontWeight: 'bold'
-      },
-      left: 'center'
-    },
-    tooltip: {
-      trigger: 'item'
-    },
-    legend: {
-      data: ['当前能力', '目标能力'],
-      bottom: 5,
-      textStyle: {
-        color: '#7c3aed'
-      }
-    },
-    radar: {
-      indicator: [
-        { name: '表达能力', max: 100 },
-        { name: '技术知识', max: 100 },
-        { name: '情绪稳定', max: 100 },
-        { name: '逻辑思维', max: 100 },
-        { name: '肢体语言', max: 100 },
-        { name: '应变能力', max: 100 }
-      ],
-      shape: 'circle',
-      splitNumber: 5,
-      axisName: {
-        color: '#7c3aed',
-        fontSize: 10
-      },
-      splitLine: {
-        lineStyle: {
-          color: ['#e9d5ff']
-        }
-      },
-      splitArea: {
-        show: false
-      }
-    },
-    series: [
-      {
-        name: '能力评估',
-        type: 'radar',
-        data: [
-          {
-            value: [75, 85, 70, 80, 65, 72],
-            name: '当前能力',
-            areaStyle: {
-              color: 'rgba(147, 51, 234, 0.4)'
-            },
-            lineStyle: {
-              color: '#9333ea',
-              width: 3
-            },
-            itemStyle: {
-              color: '#9333ea'
-            }
-          },
-          {
-            value: [90, 95, 85, 90, 80, 88],
-            name: '目标能力',
-            areaStyle: {
-              color: 'rgba(236, 72, 153, 0.4)'
-            },
-            lineStyle: {
-              color: '#ec4899',
-              width: 3,
-              type: 'dashed'
-            },
-            itemStyle: {
-              color: '#ec4899'
-            }
-          }
-        ]
-      }
-    ],
-    animation: true,
-    animationDuration: 2000,
-    animationEasing: 'cubicOut'
-  };
+  // // ECharts配置 - 能力雷达图
+  // const skillMatchOption = {
+  //   title: {
+  //     text: '能力雷达图',
+  //     textStyle: {
+  //       color: '#7c3aed',
+  //       fontSize: 14,
+  //       fontWeight: 'bold'
+  //     },
+  //     left: 'center'
+  //   },
+  //   tooltip: {
+  //     trigger: 'item'
+  //   },
+  //   legend: {
+  //     data: ['当前能力', '目标能力'],
+  //     bottom: 5,
+  //     textStyle: {
+  //       color: '#7c3aed'
+  //     }
+  //   },
+  //   radar: {
+  //     indicator: [
+  //       { name: '表达能力', max: 100 },
+  //       { name: '技术知识', max: 100 },
+  //       { name: '情绪稳定', max: 100 },
+  //       { name: '逻辑思维', max: 100 },
+  //       { name: '肢体语言', max: 100 },
+  //       { name: '应变能力', max: 100 }
+  //     ],
+  //     shape: 'circle',
+  //     splitNumber: 5,
+  //     axisName: {
+  //       color: '#7c3aed',
+  //       fontSize: 10
+  //     },
+  //     splitLine: {
+  //       lineStyle: {
+  //         color: ['#e9d5ff']
+  //       }
+  //     },
+  //     splitArea: {
+  //       show: false
+  //     }
+  //   },
+  //   series: [
+  //     {
+  //       name: '能力评估',
+  //       type: 'radar',
+  //       data: [
+  //         {
+  //           value: [75, 85, 70, 80, 65, 72],
+  //           name: '当前能力',
+  //           areaStyle: {
+  //             color: 'rgba(147, 51, 234, 0.4)'
+  //           },
+  //           lineStyle: {
+  //             color: '#9333ea',
+  //             width: 3
+  //           },
+  //           itemStyle: {
+  //             color: '#9333ea'
+  //           }
+  //         },
+  //         {
+  //           value: [90, 95, 85, 90, 80, 88],
+  //           name: '目标能力',
+  //           areaStyle: {
+  //             color: 'rgba(236, 72, 153, 0.4)'
+  //           },
+  //           lineStyle: {
+  //             color: '#ec4899',
+  //             width: 3,
+  //             type: 'dashed'
+  //           },
+  //           itemStyle: {
+  //             color: '#ec4899'
+  //           }
+  //         }
+  //       ]
+  //     }
+  //   ],
+  //   animation: true,
+  //   animationDuration: 2000,
+  //   animationEasing: 'cubicOut'
+  // };
 
-  // ECharts配置 - 技能饼状图
-  const pieOption = {
-    title: {
-      text: '技能分布',
-      textStyle: {
-        color: '#7c3aed',
-        fontSize: 14,
-        fontWeight: 'bold'
-      },
-      left: 'center'
-    },
-    tooltip: {
-      trigger: 'item',
-      formatter: '{a} <br/>{b}: {c} ({d}%)'
-    },
-    legend: {
-      orient: 'vertical',
-      left: 'left',
-      textStyle: {
-        color: '#7c3aed'
-      }
-    },
-    series: [
-      {
-        name: '技能掌握',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        center: ['60%', '50%'],
-        avoidLabelOverlap: false,
-        label: {
-          show: false,
-          position: 'center'
-        },
-        emphasis: {
-          label: {
-            show: true,
-            fontSize: '16',
-            fontWeight: 'bold',
-            color: '#7c3aed'
-          }
-        },
-        labelLine: {
-          show: false
-        },
-        data: [
-          { value: 35, name: '前端开发', itemStyle: { color: '#8b5cf6' } },
-          { value: 25, name: '后端开发', itemStyle: { color: '#a855f7' } },
-          { value: 20, name: '算法设计', itemStyle: { color: '#c084fc' } },
-          { value: 15, name: '系统设计', itemStyle: { color: '#ec4899' } },
-          { value: 5, name: '其他技能', itemStyle: { color: '#f59e0b' } }
-        ]
-      }
-    ],
-    animation: true,
-    animationDuration: 2000,
-    animationEasing: 'cubicOut'
-  };
+  // // ECharts配置 - 技能饼状图
+  // const pieOption = {
+  //   title: {
+  //     text: '技能分布',
+  //     textStyle: {
+  //       color: '#7c3aed',
+  //       fontSize: 14,
+  //       fontWeight: 'bold'
+  //     },
+  //     left: 'center'
+  //   },
+  //   tooltip: {
+  //     trigger: 'item',
+  //     formatter: '{a} <br/>{b}: {c} ({d}%)'
+  //   },
+  //   legend: {
+  //     orient: 'vertical',
+  //     left: 'left',
+  //     textStyle: {
+  //       color: '#7c3aed'
+  //     }
+  //   },
+  //   series: [
+  //     {
+  //       name: '技能掌握',
+  //       type: 'pie',
+  //       radius: ['40%', '70%'],
+  //       center: ['60%', '50%'],
+  //       avoidLabelOverlap: false,
+  //       label: {
+  //         show: false,
+  //         position: 'center'
+  //       },
+  //       emphasis: {
+  //         label: {
+  //           show: true,
+  //           fontSize: '16',
+  //           fontWeight: 'bold',
+  //           color: '#7c3aed'
+  //         }
+  //       },
+  //       labelLine: {
+  //         show: false
+  //       },
+  //       data: [
+  //         { value: 35, name: '前端开发', itemStyle: { color: '#8b5cf6' } },
+  //         { value: 25, name: '后端开发', itemStyle: { color: '#a855f7' } },
+  //         { value: 20, name: '算法设计', itemStyle: { color: '#c084fc' } },
+  //         { value: 15, name: '系统设计', itemStyle: { color: '#ec4899' } },
+  //         { value: 5, name: '其他技能', itemStyle: { color: '#f59e0b' } }
+  //       ]
+  //     }
+  //   ],
+  //   animation: true,
+  //   animationDuration: 2000,
+  //   animationEasing: 'cubicOut'
+  // };
 
-  // ECharts配置 - 能力趋势曲线图
-  const trendOption = {
-    title: {
-      text: '能力提升趋势',
-      textStyle: {
-        color: '#7c3aed',
-        fontSize: 14,
-        fontWeight: 'bold'
-      },
-      left: 'center'
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'cross'
-      }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
-      axisLine: {
-        lineStyle: {
-          color: '#7c3aed'
-        }
-      },
-      axisLabel: {
-        color: '#7c3aed'
-      }
-    },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: 100,
-      axisLine: {
-        lineStyle: {
-          color: '#7c3aed'
-        }
-      },
-      axisLabel: {
-        color: '#7c3aed'
-      }
-    },
-    series: [
-      {
-        name: '综合评分',
-        type: 'line',
-        smooth: true,
-        data: [65, 70, 78, 80, 85, 88],
-        lineStyle: {
-          color: '#8b5cf6',
-          width: 4
-        },
-        itemStyle: {
-          color: '#8b5cf6',
-          borderWidth: 3,
-          borderColor: '#fff'
-        },
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(139, 92, 246, 0.7)' },
-              { offset: 0.5, color: 'rgba(168, 85, 247, 0.4)' },
-              { offset: 1, color: 'rgba(236, 72, 153, 0.1)' }
-            ]
-          }
-        }
-      }
-    ],
-    animation: true,
-    animationDuration: 2000,
-    animationEasing: 'cubicOut'
-  };
+  // // ECharts配置 - 能力趋势曲线图
+  // const trendOption = {
+  //   title: {
+  //     text: '能力提升趋势',
+  //     textStyle: {
+  //       color: '#7c3aed',
+  //       fontSize: 14,
+  //       fontWeight: 'bold'
+  //     },
+  //     left: 'center'
+  //   },
+  //   tooltip: {
+  //     trigger: 'axis',
+  //     axisPointer: {
+  //       type: 'cross'
+  //     }
+  //   },
+  //   grid: {
+  //     left: '3%',
+  //     right: '4%',
+  //     bottom: '3%',
+  //     containLabel: true
+  //   },
+  //   xAxis: {
+  //     type: 'category',
+  //     data: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
+  //     axisLine: {
+  //       lineStyle: {
+  //         color: '#7c3aed'
+  //       }
+  //     },
+  //     axisLabel: {
+  //       color: '#7c3aed'
+  //     }
+  //   },
+  //   yAxis: {
+  //     type: 'value',
+  //     min: 0,
+  //     max: 100,
+  //     axisLine: {
+  //       lineStyle: {
+  //         color: '#7c3aed'
+  //       }
+  //     },
+  //     axisLabel: {
+  //       color: '#7c3aed'
+  //     }
+  //   },
+  //   series: [
+  //     {
+  //       name: '综合评分',
+  //       type: 'line',
+  //       smooth: true,
+  //       data: [65, 70, 78, 80, 85, 88],
+  //       lineStyle: {
+  //         color: '#8b5cf6',
+  //         width: 4
+  //       },
+  //       itemStyle: {
+  //         color: '#8b5cf6',
+  //         borderWidth: 3,
+  //         borderColor: '#fff'
+  //       },
+  //       areaStyle: {
+  //         color: {
+  //           type: 'linear',
+  //           x: 0,
+  //           y: 0,
+  //           x2: 0,
+  //           y2: 1,
+  //           colorStops: [
+  //             { offset: 0, color: 'rgba(139, 92, 246, 0.7)' },
+  //             { offset: 0.5, color: 'rgba(168, 85, 247, 0.4)' },
+  //             { offset: 1, color: 'rgba(236, 72, 153, 0.1)' }
+  //           ]
+  //         }
+  //       }
+  //     }
+  //   ],
+  //   animation: true,
+  //   animationDuration: 2000,
+  //   animationEasing: 'cubicOut'
+  // };
 
   return (
     <ProtectedRoute>
