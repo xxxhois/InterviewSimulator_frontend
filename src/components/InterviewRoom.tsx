@@ -2,12 +2,13 @@
 
 import { runCode } from '@/api/code';
 import { createDigitalHuman, DIGITAL_HUMAN_CONFIG, DigitalHumanAudio, DigitalHumanRequest, DigitalHumanVideo } from '@/api/digitalHuman';
+import { showToast } from '@/components/Toast';
 import { RTCPlayer } from '@/lib/rtcplayer';
+import { CodingProblem } from '@/types/interview';
 import { Dialog, Transition } from '@headlessui/react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { showToast } from '@/components/Toast';
 
 
 // 动态引入 Monaco Editor，避免 SSR 问题
@@ -64,6 +65,10 @@ export default function InterviewRoom() {
   const [question, setQuestion] = useState('');
   const [isRecording, setIsRecording] = useState(false);
 
+  // 编程题目相关状态
+  const [codingProblem, setCodingProblem] = useState<CodingProblem | null>(null);
+  const [isCodingPhase, setIsCodingPhase] = useState(false);
+
   // 数字人相关状态
   const [isDigitalHumanConnected, setIsDigitalHumanConnected] = useState(false);
   const [isVideoConnected, setIsVideoConnected] = useState(false);
@@ -82,6 +87,7 @@ export default function InterviewRoom() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const resampleBufferRef: React.MutableRefObject<number[]> = useRef([]);
+  const [isInterviewFinished, setIsInterviewFinished] = useState(false);
   
   // 视频帧采集相关ref
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -170,14 +176,35 @@ export default function InterviewRoom() {
             text = extractChinese(obj);
           } catch (e) {}
           setQuestion(text || '面试官问题将显示在这里');
+          // 清除编程题目状态，因为收到了新的面试官问题
+          setCodingProblem(null);
+          setIsCodingPhase(false);
           sendTextToDigitalHuman(text);
         }
         else if(data.type === 'cheat_detected'){
           // 作弊弹窗
           showToast('检测到多人同框作弊行为，请诚信面试');
         }
+        else if(data.type === 'coding_problem'){
+          setShowEditor(true);
+          setCodingProblem(data.problem);
+          setIsCodingPhase(true);
+        }
+        else if (data.type === 'coding_answer_submitted') {
+          showToast(data.text || '代码提交成功');
+          // 自动请求下一道编程题
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              "type": "request_next_coding_problem"
+            }));
+          }
+        }
         else if (data.type === 'connection_established') {
           setIsVideoConnected(true);
+        }
+        else if (data.type === 'interview_finished') {
+          showToast('所有题目已结束，请等待面试官评分');
+          setIsInterviewFinished(true);
         }
       } catch (e) {
         // 非JSON消息忽略
@@ -879,6 +906,19 @@ export default function InterviewRoom() {
     setIsRunning(false);
   }
 
+  async function handleSubmitCode() {
+    console.log('发送代码提交消息...');
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        "type": "submit_coding_answer",
+        "code": code,
+        "language": language
+      }));
+    } else {
+      showToast('WebSocket连接未建立');
+    }
+  }
+
   // 新增：代码区展开/收起
   const [showEditor, setShowEditor] = useState(false);
 
@@ -908,19 +948,97 @@ export default function InterviewRoom() {
       >
         <div className="flex-1 overflow-y-auto p-6">
           <div className="text-purple-400 font-bold text-lg mb-2">当前问题</div>
-          <div
-            className="text-base mb-4 break-words whitespace-pre-line max-w-full"
-            style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
-          >
-            {question}
-          </div>
-          {/* <div className="text-gray-400 text-sm font-semibold mb-1">面试官问题</div>
-          <div
-            className="text-gray-300 text-sm break-words whitespace-pre-line max-w-full"
-            style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
-          >
-            {mockQuestion.title}
-          </div> */}
+          
+          {/* 编程题目结构化显示 */}
+          {codingProblem ? (
+            <div className="space-y-4">
+              {/* 题目头部信息 */}
+              <div className="bg-gray-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-purple-400 font-mono text-sm">{codingProblem.number}</span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      codingProblem.difficulty === 'easy' ? 'bg-green-600' :
+                      codingProblem.difficulty === 'medium' ? 'bg-yellow-600' :
+                      'bg-red-600'
+                    }`}>
+                      {codingProblem.difficulty === 'easy' ? '简单' :
+                       codingProblem.difficulty === 'medium' ? '中等' : '困难'}
+                    </span>
+                  </div>
+                  <div className="text-gray-400 text-xs">ID: {codingProblem.id}</div>
+                </div>
+                <h3 className="text-white font-semibold text-lg mb-2">{codingProblem.title}</h3>
+                {codingProblem.tags && codingProblem.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {codingProblem.tags.map((tag: string, index: number) => (
+                      <span key={index} className="bg-gray-600 text-gray-200 px-2 py-1 rounded text-xs">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 题目描述 */}
+              <div className="bg-gray-700 rounded-lg p-4">
+                <h4 className="text-purple-300 font-semibold mb-2">题目描述</h4>
+                <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-line">
+                  {codingProblem.description}
+                </div>
+              </div>
+
+              {/* 示例 */}
+              {codingProblem.example && (
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-purple-300 font-semibold mb-2">示例</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-gray-400 text-xs mb-1">输入:</div>
+                      <div className="bg-gray-800 rounded p-2 text-sm font-mono text-green-300">
+                        {codingProblem.example.input}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-400 text-xs mb-1">输出:</div>
+                      <div className="bg-gray-800 rounded p-2 text-sm font-mono text-blue-300">
+                        {codingProblem.example.output}
+                      </div>
+                    </div>
+                    {codingProblem.example.explanation && (
+                      <div>
+                        <div className="text-gray-400 text-xs mb-1">解释:</div>
+                        <div className="bg-gray-800 rounded p-2 text-sm text-gray-200">
+                          {codingProblem.example.explanation}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 编程阶段提示 */}
+              {isCodingPhase && (
+                <div className="bg-purple-600 bg-opacity-20 border border-purple-500 rounded-lg p-3">
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 text-purple-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-purple-300 text-sm font-medium">编程阶段</span>
+                  </div>
+                  <p className="text-purple-200 text-xs mt-1">请在代码编辑器中实现解决方案</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* 普通问题显示 */
+            <div
+              className="text-base mb-4 break-words whitespace-pre-line max-w-full"
+              style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}
+            >
+              {question}
+            </div>
+          )}
         </div>
         <div className="sticky bottom-0 left-0 right-0 bg-gray-800 p-4 flex flex-col gap-2 z-10 border-t border-gray-700">
           <button
@@ -952,17 +1070,30 @@ export default function InterviewRoom() {
                   ))}
                 </select>
               </div>
-              <button
-                className="flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium ml-2 transition-all"
-                onClick={handleRunCode}
-                disabled={isRunning}
-                style={{ minWidth: 80 }}
-              >
-                {isRunning ? '运行中...' : '运行'}
-                <svg className="ml-1 w-3 h-3" viewBox="0 0 12 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                  <polygon points="3,2 10,6 3,10" />
-                </svg>
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                  onClick={handleRunCode}
+                  disabled={isRunning}
+                  style={{ minWidth: 90 }}
+                >
+                  {isRunning ? '运行中...' : '调试'}
+                  <svg className="ml-2 w-4 h-4" viewBox="0 0 12 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="3,2 10,6 3,10" />
+                  </svg>
+                </button>
+                <button
+                  className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                  onClick={handleSubmitCode}
+                  disabled={isRunning}
+                  style={{ minWidth: 90 }}
+                >
+                  提交
+                  <svg className="ml-2 w-4 h-4" viewBox="0 0 12 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 6h8M8 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="flex-1 min-h-0 mb-2">
               <MonacoEditor

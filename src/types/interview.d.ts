@@ -31,3 +31,26 @@ export type CreateInterviewResponse = {
     company_name: string;
     position_type: string;
 }
+
+// 编程题目相关类型定义
+export type CodingExample = {
+    input: string;
+    output: string;
+    explanation?: string;
+};
+
+export type CodingProblem = {
+    id: number;
+    number: string; // 题目编号，如 "LC001"
+    title: string;
+    description: string;
+    difficulty: 'easy' | 'medium' | 'hard';
+    tags: string[];
+    example: CodingExample;
+};
+
+export type CodingProblemMessage = {
+    type: 'coding_problem';
+    phase: 'code' | 'review' | 'discuss';
+    problem: CodingProblem;
+};
