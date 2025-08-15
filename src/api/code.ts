@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/apiRequest';
-import { ProblemBankResponse, ProblemDetailResponse } from '@/types/problem';
+import { NonAlgorithmSubmissionAnalysis, ProblemBankResponse, ProblemDetailResponse } from '@/types/problem';
 
 // 1. 获取题目列表
 // 获取题库列表（仅支持分类和难度筛选，参数拼接简化）
@@ -31,6 +31,32 @@ export async function getProblemDetail(problemSetId: string): Promise<ProblemDet
     url: `/code/problem-banks/${problemSetId}/problems/`,
   });
 }
+
+// 提交答题评析
+// 提交非算法题答案（主观题/非编程题）
+// 参数：problemSetId（题库ID），answers（{ [problemId]: string }），timeSpent（用时，秒），completionRate（完成率，百分比）
+// 返回：Promise<any>
+export async function submitProblemAnswers(
+  problemSetId: string,
+  answers: { [key: string]: string },
+  timeSpent: number,
+  completionRate: number
+): Promise<{
+  success: boolean;
+  message: string;
+  data: NonAlgorithmSubmissionAnalysis;
+}> {
+  return await apiRequest({
+    method: 'POST',
+    url: `/code/problem-banks/${problemSetId}/submit/`,
+    data: {
+      answers,
+      time_spent: timeSpent,
+      completion_rate: completionRate,
+    },
+  });
+}
+
 
 // 3. 运行代码
 export async function runCode(source_code: string, language_id: number, stdin: string) {
@@ -83,4 +109,3 @@ export async function submitFinalAnswer(problemId: number, source_code: string, 
     data: { source_code, language_id },
   });
 }
-

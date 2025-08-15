@@ -73,3 +73,52 @@ export type ProblemDetailResponse = {
     problems: ProblemDetail[];
     total: number;
 }
+
+/**
+ * 单道题的评析结果
+ */
+export type ProblemAnswerAnalysis = {
+    id: number;
+    problem: string;
+    problem_title: string;
+    problem_question: string;
+    reference_answer: string;
+    user_answer: string;
+    score: number;
+    max_score: number;
+    analysis: string;
+    strengths: string;
+    weaknesses: string;
+    suggestions: string;
+};
+
+/**
+ * 非算法题提交后的评析结果项
+ */
+/**
+ * 非算法题提交后的评析结果（单次提交）
+ */
+export type NonAlgorithmSubmissionAnalysis = {
+    total_score: number; // 总分
+    total_problems: number; // 总题数
+    correct_count: number; // 正确题数
+    accuracy_rate: number; // 正确率，百分比，保留一位小数
+    overall_analysis: string; // 整体分析
+    answers: {
+        problem_question: string; // 题目内容
+        user_answer: string; // 用户答案
+        analysis: string; // 评析
+        score: number; // 得分
+        max_score: number; // 满分
+    }[];
+};
+
+/**
+ * 非算法题提交后的评析结果响应
+ */
+export type NonAlgorithmSubmissionAnalysisResponse = {
+    success: boolean;
+    message: string;
+    data: NonAlgorithmSubmissionAnalysis;
+};
+

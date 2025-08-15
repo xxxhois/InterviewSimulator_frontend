@@ -1,10 +1,11 @@
 'use client';
 
-import { getProblemDetail } from "@/api/code";
+import { getProblemDetail, submitProblemAnswers } from "@/api/code";
+import AnalysisModal from "@/components/AnalysisModal";
 import Navigation from "@/components/Navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { showToast } from "@/components/Toast";
-import type { ProblemDetailResponse } from "@/types/problem";
+import type { NonAlgorithmSubmissionAnalysis, ProblemDetailResponse } from "@/types/problem";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
@@ -23,6 +24,8 @@ export default function NonAlgorithmPage() {
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
   const [timeSpent, setTimeSpent] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [analysisData, setAnalysisData] = useState<NonAlgorithmSubmissionAnalysis | null>(null);
 
   // 计时器
   useEffect(() => {
@@ -117,23 +120,31 @@ export default function NonAlgorithmPage() {
 
     setSubmitting(true);
     try {
-      // TODO: 调用提交接口
-      // const response = await submitAnswers({
-      //   problemSetId,
-      //   answers,
-      //   timeSpent,
-      //   completionRate: completeness.completionRate
-      // });
-
-      // 模拟提交延迟
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 调用提交接口
+      const response = await submitProblemAnswers(
+        problemSetId,
+        answers,
+        timeSpent,
+        completeness.completionRate
+      );
       
-      showToast('答案提交成功！');
-      
-      // 提交成功后可以跳转到结果页面或返回题库列表
-      setTimeout(() => {
-        router.push('/written-test/list');
-      }, 1500);
+      if (response.success) {
+        showToast('答案提交成功！');
+        
+        // 设置评析数据并显示弹窗
+        if (response.data) {
+          // 后端返回的 data 是对象，不是数组
+          setAnalysisData(response.data);
+          setShowAnalysisModal(true);
+        } else {
+          // 如果没有评析数据，直接跳转
+          setTimeout(() => {
+            router.push('/written-test/list');
+          }, 1500);
+        }
+      } else {
+        showToast('提交失败，请稍后重试');
+      }
       
     } catch (error) {
       console.error('提交答案失败:', error);
@@ -361,6 +372,20 @@ export default function NonAlgorithmPage() {
           </div>
         </div>
       </div>
+
+      {/* 评析结果弹窗 */}
+      <AnalysisModal
+        isOpen={showAnalysisModal}
+        onClose={() => {
+          setShowAnalysisModal(false);
+          setAnalysisData(null);
+          // 关闭弹窗后跳转到题库列表
+          setTimeout(() => {
+            router.push('/written-test/list');
+          }, 300);
+        }}
+        analysisData={analysisData}
+      />
     </ProtectedRoute>
   );
 }
