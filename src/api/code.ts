@@ -1,19 +1,20 @@
 import { apiRequest } from '@/api/apiRequest';
+import { ProblemBankResponse, ProblemDetailResponse } from '@/types/problem';
 
 // 1. 获取题目列表
-export async function getProblemList(params?: {
-  page?: number;
-  size?: number;
-  difficulty?: string;
-  category?: string;
-}) {
-  let url = '/test/problems/';
-  if (params) {
-    const query = Object.entries(params)
-      .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-      .join('&');
-    if (query) url += `?${query}`;
+// 获取题库列表（仅支持分类和难度筛选，参数拼接简化）
+// 响应类型：Promise<ProblemBankResponse>
+export async function getProblemBanks(params?: { category?: string; difficulty?: string }): Promise<ProblemBankResponse> {
+  let url = '/code/problem-banks/';
+  const queryArr: string[] = [];
+  if (params?.category) {
+    queryArr.push(`category=${encodeURIComponent(params.category)}`);
+  }
+  if (params?.difficulty) {
+    queryArr.push(`difficulty=${encodeURIComponent(params.difficulty)}`);
+  }
+  if (queryArr.length > 0) {
+    url += '?' + queryArr.join('&');
   }
   return await apiRequest({
     method: 'GET',
@@ -22,10 +23,12 @@ export async function getProblemList(params?: {
 }
 
 // 2. 获取题目详情
-export async function getProblemDetail(problemId: number) {
+// 获取题库下的题目列表
+// 响应类型：Promise<ProblemDetailResponse>
+export async function getProblemDetail(problemSetId: string): Promise<ProblemDetailResponse> {
   return await apiRequest({
     method: 'GET',
-    url: `/problems/${problemId}/`,
+    url: `/code/problem-banks/${problemSetId}/problems/`,
   });
 }
 

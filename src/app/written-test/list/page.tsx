@@ -1,246 +1,126 @@
 'use client';
+import { getProblemBanks } from "@/api/code";
 import Navigation from "@/components/Navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import type { ProblemBank } from "@/types/problem";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 // 导入技术栈图标
+import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import {
-    FaChartLine,
-    FaCode
+  FaChartLine,
+  FaCode
 } from 'react-icons/fa';
 import {
-    MdOutlineEditNote,
-    MdSpeed
+  MdError,
+  MdOutlineEditNote,
+  MdSearch,
+  MdSpeed
 } from 'react-icons/md';
 import {
-    SiDatadog,
-    SiFigma,
-    SiGoogleanalytics,
-    SiJavascript,
-    SiMysql,
-    SiNodedotjs,
-    SiPython,
-    SiReact,
-    SiSelenium,
-    SiSpring,
-    SiTensorflow,
-    SiVuedotjs
+  SiDatadog,
+  SiFigma,
+  SiGoogleanalytics,
+  SiJavascript,
+  SiMysql,
+  SiNodedotjs,
+  SiPython,
+  SiReact,
+  SiSelenium,
+  SiSpring,
+  SiTensorflow,
+  SiVuedotjs
 } from 'react-icons/si';
-
-interface ProblemSet {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  problemCount: number;
-  completedCount: number;
-  tags: string[];
-  color: string;
-  icon: React.ReactElement;
-}
 
 export default function WrittenTestListPage() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState('全部');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredProblems, setFilteredProblems] = useState<ProblemSet[]>([]);
+  const [problemBanks, setProblemBanks] = useState<ProblemBank[]>([]);
+  const [filteredProblems, setFilteredProblems] = useState<ProblemBank[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 静态题库数据
-  const problemSets: ProblemSet[] = [
-    // 前端开发
-    {
-      id: 'frontend-basics',
-      title: 'JavaScript 基础题库',
-      description: 'JavaScript 语言基础，变量、函数、对象等核心概念练习',
-      category: '前端开发',
-      difficulty: 'Easy',
-      problemCount: 120,
-      completedCount: 45,
-      tags: ['JavaScript', 'ES6', '基础语法'],
-      color: 'bg-purple-300',
-      icon: <SiJavascript className="text-3xl text-white" />
-    },
-    {
-      id: 'react-advanced',
-      title: 'React 进阶题库',
-      description: 'React Hooks、状态管理、性能优化等高级特性',
-      category: '前端开发',
-      difficulty: 'Hard',
-      problemCount: 85,
-      completedCount: 12,
-      tags: ['React', 'Hooks', '组件设计'],
-      color: 'bg-purple-300',
-      icon: <SiReact className="text-3xl text-white" />
-    },
-    {
-      id: 'vue-comprehensive',
-      title: 'Vue.js 全栈题库',
-      description: 'Vue3 组合式API、Pinia状态管理、Vue Router等',
-      category: '前端开发',
-      difficulty: 'Medium',
-      problemCount: 95,
-      completedCount: 28,
-      tags: ['Vue', 'Vue3', 'Composition API'],
-      color: 'bg-purple-300',
-      icon: <SiVuedotjs className="text-3xl text-white" />
-    },
-    // 后端开发
-    {
-      id: 'java-backend',
-      title: 'Java 后端开发',
-      description: 'Spring Boot、微服务、数据库操作等后端核心技术',
-      category: '后端开发',
-      difficulty: 'Medium',
-      problemCount: 150,
-      completedCount: 67,
-      tags: ['Java', 'Spring Boot', '微服务'],
-      color: 'bg-purple-300',
-      icon: <SiSpring className="text-3xl text-white" />
-    },
-    {
-      id: 'python-django',
-      title: 'Python Django 框架',
-      description: 'Django ORM、REST API、认证授权等Web开发',
-      category: '后端开发',
-      difficulty: 'Medium',
-      problemCount: 110,
-      completedCount: 34,
-      tags: ['Python', 'Django', 'REST API'],
-      color: 'bg-purple-300',
-      icon: <SiPython className="text-3xl text-white" />
-    },
-    {
-      id: 'nodejs-express',
-      title: 'Node.js 全栈开发',
-      description: 'Express框架、MongoDB、实时通信等技术栈',
-      category: '后端开发',
-      difficulty: 'Hard',
-      problemCount: 88,
-      completedCount: 19,
-      tags: ['Node.js', 'Express', 'MongoDB'],
-      color: 'bg-purple-300',
-      icon: <SiNodedotjs className="text-3xl text-white" />
-    },
-    // 算法设计
-    {
-      id: 'basic-algorithms',
-      title: '基础算法题库',
-      description: '排序、查找、递归等经典算法题目',
-      category: '算法设计',
-      difficulty: 'Easy',
-      problemCount: 200,
-      completedCount: 89,
-      tags: ['排序', '查找', '递归'],
-      color: 'bg-purple-300',
-      icon: <FaCode className="text-3xl text-white" />
-    },
-    {
-      id: 'data-structures',
-      title: '数据结构专题',
-      description: '链表、树、图、哈希表等数据结构实现与应用',
-      category: '算法设计',
-      difficulty: 'Medium',
-      problemCount: 160,
-      completedCount: 42,
-      tags: ['链表', '二叉树', '图论'],
-      color: 'bg-purple-300',
-      icon: <SiDatadog className="text-3xl text-white" />
-    },
-    {
-      id: 'dynamic-programming',
-      title: '动态规划题库',
-      description: '背包问题、最优子结构、状态转移等经典DP题目',
-      category: '算法设计',
-      difficulty: 'Hard',
-      problemCount: 75,
-      completedCount: 8,
-      tags: ['动态规划', '优化问题', '递推'],
-      color: 'bg-purple-300',
-      icon: <SiTensorflow className="text-3xl text-white" />
-    },
-    // 测试开发
-    {
-      id: 'automation-testing',
-      title: '自动化测试题库',
-      description: 'Selenium、Cypress、测试框架设计等自动化测试',
-      category: '测试开发',
-      difficulty: 'Medium',
-      problemCount: 70,
-      completedCount: 25,
-      tags: ['Selenium', 'Cypress', '自动化'],
-      color: 'bg-purple-300',
-      icon: <SiSelenium className="text-3xl text-white" />
-    },
-    {
-      id: 'performance-testing',
-      title: '性能测试专题',
-      description: 'JMeter、LoadRunner、压力测试、性能调优',
-      category: '测试开发',
-      difficulty: 'Hard',
-      problemCount: 55,
-      completedCount: 12,
-      tags: ['JMeter', '性能测试', '调优'],
-      color: 'bg-purple-300',
-      icon: <MdSpeed className="text-3xl text-white" />
-    },
-    // 产品经理
-    {
-      id: 'product-analysis',
-      title: '产品分析题库',
-      description: '用户需求分析、竞品分析、产品设计思维训练',
-      category: '产品经理',
-      difficulty: 'Medium',
-      problemCount: 90,
-      completedCount: 33,
-      tags: ['需求分析', '竞品分析', '用户体验'],
-      color: 'bg-purple-300',
-      icon: <SiGoogleanalytics className="text-3xl text-white" />
-    },
-    {
-      id: 'product-design',
-      title: '产品设计实战',
-      description: '原型设计、交互设计、产品规划等实战案例',
-      category: '产品经理',
-      difficulty: 'Hard',
-      problemCount: 65,
-      completedCount: 15,
-      tags: ['原型设计', '交互设计', '产品规划'],
-      color: 'bg-purple-300',
-      icon: <SiFigma className="text-3xl text-white" />
-    },
-    // 数据分析
-    {
-      id: 'sql-database',
-      title: 'SQL 数据库题库',
-      description: 'MySQL、PostgreSQL、复杂查询、性能优化',
-      category: '数据分析',
-      difficulty: 'Medium',
-      problemCount: 130,
-      completedCount: 56,
-      tags: ['SQL', 'MySQL', '数据库优化'],
-      color: 'bg-purple-300',
-      icon: <SiMysql className="text-3xl text-white" />
-    },
-    {
-      id: 'data-science',
-      title: '数据科学综合',
-      description: 'Python数据分析、机器学习、统计学应用',
-      category: '数据分析',
-      difficulty: 'Hard',
-      problemCount: 85,
-      completedCount: 21,
-      tags: ['Python', '机器学习', '统计学'],
-      color: 'bg-purple-300',
-      icon: <FaChartLine className="text-3xl text-white" />
+  // 图标匹配函数
+  const getIconForProblemBank = (problemBank: ProblemBank) => {
+    const { id, title, tags } = problemBank;
+    const searchText = `${id} ${title} ${tags.join(' ')}`.toLowerCase();
+    
+    if (searchText.includes('react')) {
+      return <SiReact className="text-3xl text-white" />;
     }
-  ];
+    if (searchText.includes('vue')) {
+      return <SiVuedotjs className="text-3xl text-white" />;
+    }
+    if (searchText.includes('javascript') || searchText.includes('js')) {
+      return <SiJavascript className="text-3xl text-white" />;
+    }
+    if (searchText.includes('python')) {
+      return <SiPython className="text-3xl text-white" />;
+    }
+    if (searchText.includes('java') || searchText.includes('spring')) {
+      return <SiSpring className="text-3xl text-white" />;
+    }
+    if (searchText.includes('node') || searchText.includes('express')) {
+      return <SiNodedotjs className="text-3xl text-white" />;
+    }
+    if (searchText.includes('mysql') || searchText.includes('sql')) {
+      return <SiMysql className="text-3xl text-white" />;
+    }
+    if (searchText.includes('selenium') || searchText.includes('test')) {
+      return <SiSelenium className="text-3xl text-white" />;
+    }
+    if (searchText.includes('tensorflow') || searchText.includes('ml') || searchText.includes('ai')) {
+      return <SiTensorflow className="text-3xl text-white" />;
+    }
+    if (searchText.includes('figma') || searchText.includes('design')) {
+      return <SiFigma className="text-3xl text-white" />;
+    }
+    if (searchText.includes('analytics') || searchText.includes('data')) {
+      return <SiGoogleanalytics className="text-3xl text-white" />;
+    }
+    if (searchText.includes('datadog') || searchText.includes('monitor')) {
+      return <SiDatadog className="text-3xl text-white" />;
+    }
+    if (searchText.includes('speed') || searchText.includes('performance')) {
+      return <MdSpeed className="text-3xl text-white" />;
+    }
+    if (searchText.includes('chart') || searchText.includes('visualization')) {
+      return <FaChartLine className="text-3xl text-white" />;
+    }
+    // 默认图标
+    return <FaCode className="text-3xl text-white" />;
+  };
 
-  const categories = ['全部', '前端开发', '后端开发', '算法设计', '测试开发', '产品经理', '数据分析'];
+  // 获取题库数据
+  useEffect(() => {
+    const fetchProblemBanks = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getProblemBanks();
+        if (response.success) {
+          setProblemBanks(response.data);
+        } else {
+          setError('获取题库数据失败');
+        }
+      } catch (err) {
+        console.error('获取题库数据失败:', err);
+        setError('网络错误，请稍后重试');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProblemBanks();
+  }, []);
+
+  // 动态获取分类列表
+  const categories = ['全部', ...Array.from(new Set(problemBanks.map(bank => bank.category)))];
 
   // 筛选逻辑
   useEffect(() => {
-    let filtered = problemSets;
+    let filtered = problemBanks;
     
     if (selectedCategory !== '全部') {
       filtered = filtered.filter(problem => problem.category === selectedCategory);
@@ -250,12 +130,14 @@ export default function WrittenTestListPage() {
       filtered = filtered.filter(problem => 
         problem.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         problem.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        problem.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        problem.tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
     setFilteredProblems(filtered);
-  }, [selectedCategory, searchTerm]);
+  }, [selectedCategory, searchTerm, problemBanks]);
+
+
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -324,94 +206,120 @@ export default function WrittenTestListPage() {
           </div>
         </div>
 
-        {/* 题库卡片网格 */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProblems.map((problemSet) => (
-              <div
-                key={problemSet.id}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100 overflow-hidden group cursor-pointer"
-                onClick={() => router.push('/written-test/ide')}
-              >
-                {/* 卡片头部 - 渐变背景 */}
-                <div className={`h-32 ${problemSet.color} relative overflow-hidden`}>
-                  <div className="absolute inset-0 bg-black bg-opacity-10"></div>
-                  <div className="absolute top-4 left-4">
-                    {problemSet.icon}
-                  </div>
-                  <div className="absolute top-4 right-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDifficultyColor(problemSet.difficulty)}`}>
-                      {problemSet.difficulty}
-                    </span>
-                  </div>
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <h3 className="text-white font-bold text-lg mb-1 group-hover:scale-105 transition-transform">
-                      {problemSet.title}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* 卡片内容 */}
-                <div className="p-6">
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {problemSet.description}
-                  </p>
-
-                  {/* 标签 */}
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {problemSet.tags.slice(0, 3).map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* 进度信息 */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">进度</span>
-                      <span className="text-purple-600 font-semibold">
-                        {problemSet.completedCount}/{problemSet.problemCount} ({getProgressPercentage(problemSet.completedCount, problemSet.problemCount)}%)
+                 {/* 题库卡片网格 */}
+         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+           {loading ? (
+             <div className="text-center py-12">
+               <div className="flex justify-center mb-4">
+                 <AiOutlineLoading3Quarters className="text-6xl text-purple-500 animate-spin" />
+               </div>
+               <h3 className="text-xl font-semibold text-gray-600 mb-2">正在加载题库...</h3>
+               <p className="text-gray-500">请稍候</p>
+             </div>
+           ) : error ? (
+             <div className="text-center py-12">
+               <div className="flex justify-center mb-4">
+                 <MdError className="text-6xl text-red-500" />
+               </div>
+               <h3 className="text-xl font-semibold text-gray-600 mb-2">加载失败</h3>
+               <p className="text-gray-500">{error}</p>
+             </div>
+           ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProblems.map((problemSet) => (
+                <div
+                  key={problemSet.id}
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-purple-100 overflow-hidden group cursor-pointer"
+                                     onClick={() => {
+                     if (problemSet.is_algorithm) {
+                       router.push(`/written-test/ide?problemSetId=${problemSet.id}`);
+                     } else {
+                       router.push(`/written-test/non-algorithm?problemSetId=${problemSet.id}`);
+                     }
+                   }}
+                >
+                  {/* 卡片头部 - 渐变背景 */}
+                  <div className={`h-32 bg-purple-300 relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+                    <div className="absolute top-4 left-4">
+                      {getIconForProblemBank(problemSet)}
+                    </div>
+                    <div className="absolute top-4 right-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDifficultyColor(problemSet.difficulty)}`}>
+                        {problemSet.difficulty}
                       </span>
                     </div>
-                    
-                    {/* 进度条 */}
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-purple-400 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${getProgressPercentage(problemSet.completedCount, problemSet.problemCount)}%` }}
-                      ></div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <h3 className="text-white font-bold text-lg mb-1 group-hover:scale-105 transition-transform">
+                        {problemSet.title}
+                      </h3>
                     </div>
+                  </div>
 
-                    {/* 题目数量 */}
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-sm text-gray-500">
-                        <span className="inline-flex items-center">
-                          <MdOutlineEditNote className="inline-block mr-1 text-lg text-purple-500" />
-                          {problemSet.problemCount} 道题目
+                  {/* 卡片内容 */}
+                  <div className="p-6">
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {problemSet.description}
+                    </p>
+
+                    {/* 标签 */}
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {problemSet.tags.slice(0, 3).map((tag: string) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full"
+                        >
+                          {tag}
                         </span>
-                      </span>
-                      <button className="text-purple-600 text-sm font-medium hover:text-purple-700 transition-colors">
-                        开始练习 →
-                      </button>
+                      ))}
+                    </div>
+
+                    {/* 进度信息 */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">进度</span>
+                        <span className="text-purple-600 font-semibold">
+                          {problemSet.completed_count}/{problemSet.problem_count} ({getProgressPercentage(problemSet.completed_count, problemSet.problem_count)}%)
+                        </span>
+                      </div>
+                      
+                      {/* 进度条 */}
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-purple-400 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${getProgressPercentage(problemSet.completed_count, problemSet.problem_count)}%` }}
+                        ></div>
+                      </div>
+
+                      {/* 题目数量 */}
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-sm text-gray-500">
+                          <span className="inline-flex items-center">
+                            <MdOutlineEditNote className="inline-block mr-1 text-lg text-purple-500" />
+                            {problemSet.problem_count} 道题目
+                          </span>
+                        </span>
+                        <button className="text-purple-600 text-sm font-medium hover:text-purple-700 transition-colors">
+                          开始练习 →
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* 空状态 */}
-          {filteredProblems.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🔍</div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">没有找到相关题库</h3>
-              <p className="text-gray-500">尝试调整搜索条件或选择其他分类</p>
+              ))}
             </div>
           )}
+
+                     {/* 空状态 */}
+           {!loading && !error && filteredProblems.length === 0 && (
+             <div className="text-center py-12">
+               <div className="flex justify-center mb-4">
+                 <MdSearch className="text-6xl text-gray-400" />
+               </div>
+               <h3 className="text-xl font-semibold text-gray-600 mb-2">没有找到相关题库</h3>
+               <p className="text-gray-500">尝试调整搜索条件或选择其他分类</p>
+             </div>
+           )}
         </div>
 
         {/* 统计信息 */}
@@ -419,18 +327,18 @@ export default function WrittenTestListPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <div>
-                <div className="text-2xl font-bold text-purple-600">{problemSets.length}</div>
+                <div className="text-2xl font-bold text-purple-600">{problemBanks.length}</div>
                 <div className="text-sm text-gray-500">题库总数</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-purple-600">
-                  {problemSets.reduce((sum, set) => sum + set.problemCount, 0)}
+                  {problemBanks.reduce((sum: number, set: ProblemBank) => sum + set.problem_count, 0)}
                 </div>
                 <div className="text-sm text-gray-500">题目总数</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-purple-600">
-                  {problemSets.reduce((sum, set) => sum + set.completedCount, 0)}
+                  {problemBanks.reduce((sum: number, set: ProblemBank) => sum + set.completed_count, 0)}
                 </div>
                 <div className="text-sm text-gray-500">已完成</div>
               </div>
