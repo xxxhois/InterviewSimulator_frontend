@@ -19,7 +19,10 @@ import {
   FaBuilding,
   FaBullseye,
   FaCar,
-  FaPlay
+  FaMobile,
+  FaPlay,
+  FaSearch,
+  FaShoppingCart
 } from 'react-icons/fa';
 import { SiMeituan } from 'react-icons/si';
 
@@ -192,17 +195,23 @@ const MainDashboard = () => {
   const getCompanyIcon = (companyName: string) => {
     switch (companyName) {
       case '字节跳动':
-        return <FaBehance className="text-2xl text-purple-600" />;
+        return <FaBehance className="text-2xl text-orange-500" />;
       case '阿里巴巴':
-        return <FaAmazon className="text-2xl text-purple-600" />;
+        return <FaAmazon className="text-2xl text-yellow-500" />;
       case '腾讯':
-        return <FaCar className="text-2xl text-purple-600" />;
+        return <FaCar className="text-2xl text-green-500" />;
       case '美团':
-        return <SiMeituan className="text-2xl text-purple-600" />;
+        return <SiMeituan className="text-2xl text-yellow-600" />;
       case '滴滴':
-        return <FaPlay className="text-2xl text-purple-600" />;
+        return <FaPlay className="text-2xl text-orange-400" />;
+      case '百度':
+        return <FaSearch className="text-2xl text-blue-500" />;
+      case '京东':
+        return <FaShoppingCart className="text-2xl text-red-500" />;
+      case '华为':
+        return <FaMobile className="text-2xl text-red-600" />;
       default:
-        return <FaBuilding className="text-2xl text-purple-600" />;
+        return <FaBuilding className="text-2xl text-purple-500" />;
     }
   };
 
@@ -490,8 +499,9 @@ const MainDashboard = () => {
                             <h4 className="font-semibold text-purple-800">{topic.name}</h4>
                             <div className="flex items-center space-x-2 mt-1">
                               <span className={`px-2 py-1 rounded-full text-xs ${
-                                topic.difficulty === '困难' ? 'bg-red-100 text-red-600' :
-                                topic.difficulty === '中等' ? 'bg-yellow-100 text-yellow-600' :
+                                topic.difficulty === 'Hard' || topic.difficulty === '困难' ? 'bg-red-100 text-red-600' :
+                                topic.difficulty === 'Medium' || topic.difficulty === '中等' ? 'bg-yellow-100 text-yellow-600' :
+                                topic.difficulty === 'Easy' || topic.difficulty === '简单' ? 'bg-green-100 text-green-600' :
                                 'bg-green-100 text-green-600'
                               }`}>
                                 {topic.difficulty}

@@ -21,7 +21,7 @@ export type RecommendedCompany = {
 
 export type RecommendedTopic = {
   name: string;
-  difficulty: '简单' | '中等' | '困难';
+  difficulty: '简单' | '中等' | '困难' | 'Easy' | 'Medium' | 'Hard';
   matchRate: number;
   count: number;
 }

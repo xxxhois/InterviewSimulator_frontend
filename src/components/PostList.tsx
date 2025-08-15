@@ -1,19 +1,22 @@
 'use client';
-import { fetchPosts, fetchPostDetail } from '@/api/post';
+import { fetchPostDetail, fetchPosts } from '@/api/post';
+import PostCard from '@/components/PostCard';
+import PostDetailModal from '@/components/PostDetail';
 import type { Post, PostDetail, PostListResponse } from '@/types/post';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { useInView } from 'react-intersection-observer';
-import PostCard from '@/components/PostCard';
-import PostDetailModal from '@/components/PostDetail'; // 你刚才写的弹窗组件
 
 export default function PostList() {
+  const queryClient = useQueryClient();
+  
   const {
     data,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     status,
+    refetch,
   } = useInfiniteQuery<PostListResponse, Error>({
     queryKey: ['posts'],
     queryFn: ({ pageParam = 1 }) => fetchPosts({ pageParam: pageParam as number }),
@@ -38,6 +41,12 @@ export default function PostList() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // 刷新帖子列表
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['posts'] });
+    refetch();
+  };
 
   // 弹窗改用详情数据
   const handleCardClick = async (post: Post) => {
@@ -75,6 +84,7 @@ export default function PostList() {
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         post={selectedPost}
+        onRefresh={handleRefresh}
       />
     </div>
   );

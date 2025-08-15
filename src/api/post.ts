@@ -1,5 +1,5 @@
+import { CreateReplyRequest, CreateReplyResponse, PostDetail } from '@/types/post';
 import { apiRequest } from './apiRequest';
-import { PostDetail } from '@/types/post';
 
 export async function fetchPosts({ pageParam = 1, pageSize = 10 }) {
     const url = `/posts/list/?page=${pageParam}&page_size=${pageSize}`;
@@ -41,3 +41,22 @@ export async function createPost({ title, content }: { title: string; content: s
     });
     return res;
 }
+
+/**
+ * 创建回复
+ * @param {number} post_id 帖子ID
+ * @param {CreateReplyRequest} data 回复数据
+ * @returns {Promise<CreateReplyResponse>} 创建结果
+ */
+export async function createReply(post_id: number, data: CreateReplyRequest): Promise<CreateReplyResponse> {
+    const url = `/posts/reply/create/${post_id}/`;
+    const res = await apiRequest({
+        method: 'POST',
+        url,
+        data,
+        attachToken: true, // 需要JWT认证
+    });
+    return res;
+}
+
+

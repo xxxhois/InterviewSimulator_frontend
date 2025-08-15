@@ -82,7 +82,7 @@ const HomePage = () => {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5, duration: 1 }}
                 >
-                  模拟真实面试场景，智能评估表达、情绪与技术能力。选择你喜欢的数字人面试官，开启定制化提升之旅。
+                  模拟真实面试场景，智能评估表达、情绪与技术能力。选择你的目标岗位和薪资，开启定制化提升之旅。
                 </motion.p>
                 <motion.button
                   onClick={() => router.push('/dashboard')}
