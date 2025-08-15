@@ -23,12 +23,12 @@ export default function ProfilePage() {
   const [interviewRecords, setInterviewRecords] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('interview'); // 'interview' or 'practice'
   const [comment, setComment] = useState<string | null>(null);
-  const [commentLoading, setCommentLoading] = useState(true);
+  const [commentLoading, setCommentLoading] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
   const [evaluationData, setEvaluationData] = useState<any>(null);
-  const [evaluationLoading, setEvaluationLoading] = useState(true);
+  const [evaluationLoading, setEvaluationLoading] = useState(false);
   const [editProfile, setEditProfile] = useState({
     email: '',
     first_name: '',
@@ -78,35 +78,7 @@ export default function ProfilePage() {
           { id: 2, company: '腾讯', position: '前端开发', date: '2024-03-28', result: '未通过' }
         ]);
 
-        // 获取能力评估数据
-        setEvaluationLoading(true);
-        try {
-          const evaluationResponse = await getUserEvaluationOverview();
-          setEvaluationData(evaluationResponse);
-          setComment(evaluationResponse.summary);
-        } catch (error) {
-          console.error('获取能力评估数据失败:', error);
-          // 如果API失败，使用默认数据
-          setEvaluationData({
-            radar: {
-              dimensions: ['专业知识水平', '技能匹配度', '语言表达能力', '逻辑思维能力', '创新能力', '应变抗压能力'],
-              scores: [75, 85, 70, 80, 65, 72]
-            },
-            masteryProgress: {
-              labels: ['前端开发', '后端开发', '算法设计', '系统设计', '其他技能'],
-              progress: [0.35, 0.25, 0.20, 0.15, 0.05]
-            },
-            trend: {
-              dates: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
-              scores: [65, 70, 78, 80, 85, 88]
-            },
-            summary: '基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n面试通过率较高，具备良好的沟通表达能力。\n建议继续加强高频算法题训练，提升代码优化能力。'
-          });
-          setComment('基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n面试通过率较高，具备良好的沟通表达能力。\n建议继续加强高频算法题训练，提升代码优化能力。');
-        } finally {
-          setEvaluationLoading(false);
-          setCommentLoading(false);
-        }
+
         
       } catch (error) {
         console.error('获取用户资料失败:', error);
@@ -121,6 +93,48 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchPositions(1, '');
+  }, []);
+
+  // 单独获取能力评估数据
+  useEffect(() => {
+    const fetchEvaluationData = async () => {
+      setEvaluationLoading(true);
+      setCommentLoading(true);
+      try {
+        const evaluationResponse = await getUserEvaluationOverview();
+        setEvaluationData(evaluationResponse);
+        setComment(evaluationResponse.summary);
+      } catch (error) {
+        console.error('获取能力评估数据失败:', error);
+        // 如果API失败，使用默认数据
+        setEvaluationData({
+          radar: {
+            dimensions: ['专业知识水平', '技能匹配度', '语言表达能力', '逻辑思维能力', '创新能力', '应变抗压能力'],
+            scores: [75, 85, 70, 80, 65, 72]
+          },
+          masteryProgress: {
+            labels: ['前端开发', '后端开发', '算法设计', '系统设计', '其他技能'],
+            progress: [0.35, 0.25, 0.20, 0.15, 0.05]
+          },
+          trend: {
+            dates: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
+            scores: [65, 70, 78, 80, 85, 88]
+          },
+          summary: '基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n面试通过率较高，具备良好的沟通表达能力。\n建议继续加强高频算法题训练，提升代码优化能力。'
+        });
+        setComment('基础知识扎实，算法能力较强，能够独立解决中等难度问题。\n面试通过率较高，具备良好的沟通表达能力。\n建议继续加强高频算法题训练，提升代码优化能力。');
+      } finally {
+        setEvaluationLoading(false);
+        setCommentLoading(false);
+      }
+    };
+
+    // 延迟获取能力评估数据，让其他内容先渲染
+    const timer = setTimeout(() => {
+      fetchEvaluationData();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchPositions = async (page = 1, keyword = '') => {
@@ -391,15 +405,33 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <ReactECharts option={skillMatchOption} style={{ height: '260px' }} opts={{ renderer: 'canvas' }} />
-              </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <ReactECharts option={pieOption} style={{ height: '260px' }} opts={{ renderer: 'canvas' }} />
-              </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <ReactECharts option={trendOption} style={{ height: '260px' }} opts={{ renderer: 'canvas' }} />
-              </div>
+              {evaluationLoading ? (
+                // 加载状态显示
+                <>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 flex items-center justify-center">
+                    <div className="text-purple-600">能力雷达图加载中...</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 flex items-center justify-center">
+                    <div className="text-purple-600">技能分布图加载中...</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 flex items-center justify-center">
+                    <div className="text-purple-600">能力提升趋势图加载中...</div>
+                  </div>
+                </>
+              ) : (
+                // 数据加载完成后显示图表
+                <>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                    <ReactECharts option={skillMatchOption} style={{ height: '260px' }} opts={{ renderer: 'canvas' }} />
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                    <ReactECharts option={pieOption} style={{ height: '260px' }} opts={{ renderer: 'canvas' }} />
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                    <ReactECharts option={trendOption} style={{ height: '260px' }} opts={{ renderer: 'canvas' }} />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
