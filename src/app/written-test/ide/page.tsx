@@ -1,9 +1,24 @@
 'use client';
 
-import { runCode } from '@/api/code';
+import { getAlgorithmProblems, runCode } from '@/api/code';
 import { useAuthStore } from '@/store/authStore';
+import { AlgorithmProblem, TestCase } from '@/types/problem';
 import Editor from '@monaco-editor/react';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import {
+  FaCheck,
+  FaChevronDown,
+  FaChevronUp,
+  FaClock,
+  FaCode,
+  FaEye,
+  FaEyeSlash,
+  FaPause,
+  FaPlay,
+  FaTerminal,
+  FaTimes
+} from 'react-icons/fa';
 
 const languages = [
   { name: 'C++', id: 54, monacoLang: 'cpp' },
@@ -13,7 +28,11 @@ const languages = [
 ];
 
 // 默认代码模板
-const getDefaultCode = (languageId: number) => {
+const getDefaultCode = (languageId: number, template?: string) => {
+  if (template) {
+    return template;
+  }
+  
   switch (languageId) {
     case 54: // C++
       return `#include <iostream>
@@ -42,140 +61,73 @@ console.log("Hello, World!");`;
   }
 };
 
-// 示例题目数据
-const testProblemData = {
-  title: "两数之和",
-  description: `给定一个整数数组 nums 和一个整数目标值 target，请你在该数组中找出和为目标值 target 的那两个整数，并返回它们的数组下标。
-
-你可以假设每种输入只会对应一个答案。但是，数组中同一个元素在答案里不能重复出现。
-
-你可以按任意顺序返回答案。
-
-示例 1：
-输入：nums = [2,7,11,15], target = 9
-输出：[0,1]
-解释：因为 nums[0] + nums[1] == 9 ，返回 [0, 1] 。
-
-示例 2：
-输入：nums = [3,2,4], target = 6
-输出：[1,2]
-
-示例 3：
-输入：nums = [3,3], target = 6
-输出：[0,1]
-
-提示：
-- 2 <= nums.length <= 104
-- -109 <= nums[i] <= 109
-- -109 <= target <= 109
-- 只会存在一个有效答案`,
-  constraints: [
-    "2 <= nums.length <= 104",
-    "-109 <= nums[i] <= 109", 
-    "-109 <= target <= 109",
-    "只会存在一个有效答案"
-  ]
-};
-
-// 示例题目列表
-const testProblemList = [
-  { id: 1, title: "两数之和", difficulty: "easy", category: "algorithm" },
-  { id: 2, title: "反转链表", difficulty: "easy", category: "data-structure" },
-  { id: 3, title: "最长回文子串", difficulty: "medium", category: "algorithm" },
-  { id: 4, title: "合并两个有序数组", difficulty: "easy", category: "algorithm" },
-  { id: 5, title: "有效的括号", difficulty: "easy", category: "data-structure" },
-  { id: 6, title: "爬楼梯", difficulty: "easy", category: "algorithm" },
-  { id: 7, title: "二叉树的最大深度", difficulty: "easy", category: "data-structure" },
-  { id: 8, title: "买卖股票的最佳时机", difficulty: "easy", category: "algorithm" },
-];
-
-// 示例测试用例
-const testCases = {
-  public: [
-    {
-      id: 1,
-      name: "示例 1",
-      input: "[2,7,11,15]\n9",
-      expectedOutput: "[0,1]",
-      status: 'pending' as 'pending' | 'running' | 'passed' | 'failed',
-      actualOutput: '',
-      error: ''
-    },
-    {
-      id: 2,
-      name: "示例 2", 
-      input: "[3,2,4]\n6",
-      expectedOutput: "[1,2]",
-      status: 'pending' as 'pending' | 'running' | 'passed' | 'failed',
-      actualOutput: '',
-      error: ''
-    },
-    {
-      id: 3,
-      name: "示例 3",
-      input: "[3,3]\n6", 
-      expectedOutput: "[0,1]",
-      status: 'pending' as 'pending' | 'running' | 'passed' | 'failed',
-      actualOutput: '',
-      error: ''
-    }
-  ],
-  hidden: [
-    {
-      id: 4,
-      name: "隐藏测试用例 1",
-      status: 'pending' as 'pending' | 'running' | 'passed' | 'failed'
-    },
-    {
-      id: 5,
-      name: "隐藏测试用例 2",
-      status: 'pending' as 'pending' | 'running' | 'passed' | 'failed'
-    },
-    {
-      id: 6,
-      name: "隐藏测试用例 3",
-      status: 'pending' as 'pending' | 'running' | 'passed' | 'failed'
-    }
-  ]
-};
-
 export default function WrittenTestPage() {
-  const [currentProblemId, setCurrentProblemId] = useState(1);
-  const [problemList, setProblemList] = useState(testProblemList);
-  const [problemData, setProblemData] = useState(testProblemData);
+  const searchParams = useSearchParams();
+  const problemSetId = searchParams.get('id') || 'basic-algorithm';
+  
+  const [problemList, setProblemList] = useState<AlgorithmProblem[]>([]);
+  const [currentProblem, setCurrentProblem] = useState<AlgorithmProblem | null>(null);
   const [languageId, setLanguageId] = useState(71);
   const [monacoLang, setMonacoLang] = useState('python');
-  const [code, setCode] = useState(getDefaultCode(71));
+  const [code, setCode] = useState('');
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [publicTestCases, setPublicTestCases] = useState(testCases.public);
-  const [hiddenTestCases, setHiddenTestCases] = useState(testCases.hidden);
+  const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [publicTestCases, setPublicTestCases] = useState<TestCase[]>([]);
+  const [hiddenTestCases, setHiddenTestCases] = useState<TestCase[]>([]);
   const [showProblemList, setShowProblemList] = useState(false);
   const [expandedPublicCases, setExpandedPublicCases] = useState<number[]>([]);
 
   // 模拟用户数据
   const user = useAuthStore().user?.username;
 
+  // 获取题目数据
+  useEffect(() => {
+    const fetchProblems = async () => {
+      setLoadingData(true);
+      setError(null);
+      try {
+        const response = await getAlgorithmProblems(problemSetId);
+        if (response.success) {
+          setProblemList(response.problems);
+          if (response.problems.length > 0) {
+            setCurrentProblem(response.problems[0]);
+            setCode(getDefaultCode(languageId, response.problems[0].code_template));
+            setPublicTestCases(response.problems[0].test_cases.public);
+            setHiddenTestCases(response.problems[0].test_cases.hidden);
+          }
+        } else {
+          setError('获取题目数据失败');
+        }
+      } catch (err) {
+        console.error('获取题目数据失败:', err);
+        setError('获取题目数据失败');
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchProblems();
+  }, [problemSetId]);
+
   const handleLanguageChange = (langId: number) => {
     const lang = languages.find((l) => l.id === langId);
     setLanguageId(langId);
     setMonacoLang(lang?.monacoLang || 'python');
-    setCode(getDefaultCode(langId));
+    if (currentProblem) {
+      setCode(getDefaultCode(langId, currentProblem.code_template));
+    }
   };
 
-  const handleProblemChange = (problemId: number) => {
-    setCurrentProblemId(problemId);
-    // 这里可以调用 API 获取新题目的数据
-    // const newProblemData = await getProblemDetail(problemId);
-    // setProblemData(newProblemData);
-    
-    // 重置代码和测试用例状态
-    setCode(getDefaultCode(languageId));
+  const handleProblemChange = (problem: AlgorithmProblem) => {
+    setCurrentProblem(problem);
+    setCode(getDefaultCode(languageId, problem.code_template));
     setInput('');
     setOutput('');
-    setPublicTestCases(testCases.public.map(tc => ({ ...tc, status: 'pending' as const, actualOutput: '', error: '' })));
-    setHiddenTestCases(testCases.hidden.map(tc => ({ ...tc, status: 'pending' as const })));
+    setPublicTestCases(problem.test_cases.public.map(tc => ({ ...tc, status: 'pending' as const, actualOutput: '', error: '' })));
+    setHiddenTestCases(problem.test_cases.hidden.map(tc => ({ ...tc, status: 'pending' as const })));
   };
 
   const handleRunCode = async () => {
@@ -189,7 +141,7 @@ export default function WrittenTestPage() {
     setLoading(false);
   };
 
-  const runTestCase = async (testCase: any, isPublic: boolean) => {
+  const runTestCase = async (testCase: TestCase, isPublic: boolean) => {
     // 更新测试用例状态为运行中
     if (isPublic) {
       setPublicTestCases(prev => prev.map(tc => 
@@ -207,7 +159,7 @@ export default function WrittenTestPage() {
       const error = res.stderr || '';
       
       // 简单的输出比较（实际项目中可能需要更复杂的比较逻辑）
-      const passed = actualOutput.trim() === testCase.expectedOutput.trim() && !error;
+      const passed = actualOutput.trim() === testCase.expectedOutput?.trim() && !error;
       
       if (isPublic) {
         setPublicTestCases(prev => prev.map(tc => 
@@ -255,13 +207,13 @@ export default function WrittenTestPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'running':
-        return '⏳';
+        return <FaClock className="text-yellow-400 animate-spin" />;
       case 'passed':
-        return '✅';
+        return <FaCheck className="text-green-400" />;
       case 'failed':
-        return '❌';
+        return <FaTimes className="text-red-400" />;
       default:
-        return '⏸️';
+        return <FaPause className="text-gray-400" />;
     }
   };
 
@@ -279,7 +231,7 @@ export default function WrittenTestPage() {
   };
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
+    switch (difficulty.toLowerCase()) {
       case 'easy':
         return 'text-green-400';
       case 'medium':
@@ -298,6 +250,57 @@ export default function WrittenTestPage() {
     );
   };
 
+  // 将约束条件对象转换为数组
+  const getConstraintsArray = (constraints: any) => {
+    if (!constraints) return [];
+    return Object.entries(constraints).map(([key, value]) => {
+      const keyMap: Record<string, string> = {
+        time_complexity: '时间复杂度',
+        space_complexity: '空间复杂度',
+        array_length: '数组长度',
+        target_range: '目标值范围'
+      };
+      return `${keyMap[key] || key}: ${value}`;
+    });
+  };
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-gray-400">加载题目数据中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded"
+          >
+            重新加载
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentProblem) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-400">暂无题目数据</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* 顶部用户信息栏 */}
@@ -307,7 +310,7 @@ export default function WrittenTestPage() {
             {user || '用户'} 的笔试
           </h1>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-400">当前题目: {problemData.title}</span>
+            <span className="text-sm text-gray-400">当前题目: {currentProblem.title}</span>
             <button
               onClick={() => setShowProblemList(!showProblemList)}
               className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-sm"
@@ -328,9 +331,9 @@ export default function WrittenTestPage() {
                 {problemList.map((problem) => (
                   <div
                     key={problem.id}
-                    onClick={() => handleProblemChange(problem.id)}
+                    onClick={() => handleProblemChange(problem)}
                     className={`p-3 rounded cursor-pointer transition-colors ${
-                      currentProblemId === problem.id
+                      currentProblem.id === problem.id
                         ? 'bg-purple-600 text-white'
                         : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                     }`}
@@ -351,21 +354,46 @@ export default function WrittenTestPage() {
 
         {/* 题目描述区域 */}
         <div className={`bg-gray-800 p-6 overflow-y-auto border-r border-gray-700 ${showProblemList ? 'w-80' : 'w-1/4'}`}>
-          <h1 className="text-xl font-bold text-purple-400 mb-4">{problemData.title}</h1>
-          <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-            {problemData.description}
+          <h1 className="text-xl font-bold text-purple-400 mb-4">{currentProblem.title}</h1>
+          <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap mb-4">
+            {currentProblem.description}
           </div>
           
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold text-purple-300 mb-2">约束条件：</h3>
+          <div className="mb-4">
+            <h3 className="text-md font-semibold text-purple-300 mb-2">题目要求：</h3>
+            <div className="text-sm text-gray-300 leading-relaxed">
+              {currentProblem.question}
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <h3 className="text-md font-semibold text-purple-300 mb-2">场景描述：</h3>
+            <div className="text-sm text-gray-300 leading-relaxed">
+              {currentProblem.scenario}
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <h3 className="text-md font-semibold text-purple-300 mb-2">约束条件：</h3>
             <ul className="text-sm text-gray-300 space-y-1">
-              {problemData.constraints.map((constraint, index) => (
+              {getConstraintsArray(currentProblem.constraints).map((constraint, index) => (
                 <li key={index} className="flex items-start">
                   <span className="text-purple-400 mr-2">•</span>
                   {constraint}
                 </li>
               ))}
             </ul>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="text-md font-semibold text-purple-300 mb-2">标签：</h3>
+            <div className="flex flex-wrap gap-2">
+              {currentProblem.tags.map((tag, index) => (
+                <span key={index} className="px-2 py-1 bg-purple-600 text-white text-xs rounded">
+                  {tag}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -426,21 +454,26 @@ export default function WrittenTestPage() {
               <button
                 onClick={handleRunCode}
                 disabled={loading}
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50"
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white font-semibold disabled:opacity-50 flex items-center gap-2"
               >
+                <FaPlay className="text-sm" />
                 {loading ? '运行中...' : '运行代码'}
               </button>
               <button
                 onClick={runAllPublicTests}
-                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold"
+                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white font-semibold flex items-center gap-2"
               >
+                <FaCode className="text-sm" />
                 运行所有公开测试
               </button>
             </div>
 
             {output && (
               <div className="mt-3">
-                <label className="text-sm text-gray-400 block mb-1">输出结果：</label>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-2">
+                  <FaTerminal className="text-sm" />
+                  输出结果：
+                </label>
                 <pre className="bg-gray-800 p-3 rounded text-green-300 whitespace-pre-wrap text-sm border border-gray-700">
                   {output}
                 </pre>
@@ -451,49 +484,85 @@ export default function WrittenTestPage() {
 
         {/* 右侧：测试用例 */}
         <div className="w-1/4 bg-gray-800 p-6 overflow-y-auto border-l border-gray-700">
-          <h2 className="text-lg font-semibold text-purple-400 mb-4">测试用例</h2>
+          <h2 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
+            <FaCode className="text-lg" />
+            测试用例
+          </h2>
           
           {/* 公开测试用例 */}
           <div className="mb-6">
-            <h3 className="text-md font-semibold text-blue-400 mb-3">公开测试用例</h3>
-            <div className="space-y-2">
+            <h3 className="text-md font-semibold text-blue-400 mb-3 flex items-center gap-2">
+              <FaEye className="text-sm" />
+              公开测试用例 ({publicTestCases.length})
+            </h3>
+            <div className="space-y-3">
               {publicTestCases.map((testCase) => {
                 const expanded = expandedPublicCases.includes(testCase.id);
                 return (
-                  <div key={testCase.id} className="bg-gray-700 rounded">
+                  <div key={testCase.id} className="bg-gray-700 rounded-lg border border-gray-600 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div
-                      className="flex items-center justify-between p-3 cursor-pointer select-none"
+                      className="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-gray-650 transition-colors"
                       onClick={() => togglePublicCase(testCase.id)}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{testCase.name}</span>
-                        <span className={`text-lg ${getStatusColor(testCase.status)}`}>{getStatusIcon(testCase.status)}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+                          {getStatusIcon(testCase.status)}
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-200">{testCase.name}</span>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {testCase.status === 'running' && '运行中...'}
+                            {testCase.status === 'passed' && '通过'}
+                            {testCase.status === 'failed' && '失败'}
+                            {testCase.status === 'pending' && '待运行'}
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {expanded ? '收起 ▲' : '展开 ▼'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">
+                          {expanded ? '收起' : '展开'}
+                        </span>
+                        {expanded ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
+                      </div>
                     </div>
                     {expanded && (
-                      <div className="px-3 pb-3">
-                        <div className="text-xs text-gray-400 mb-2">
-                          <div>输入: {testCase.input}</div>
-                          <div>期望: {testCase.expectedOutput}</div>
+                      <div className="px-4 pb-4 border-t border-gray-600 bg-gray-750">
+                        <div className="py-3 space-y-2">
+                          <div className="text-xs">
+                            <div className="text-gray-400 mb-1">输入:</div>
+                            <div className="bg-gray-800 p-2 rounded text-gray-300 font-mono">
+                              {testCase.input}
+                            </div>
+                          </div>
+                          <div className="text-xs">
+                            <div className="text-gray-400 mb-1">期望输出:</div>
+                            <div className="bg-gray-800 p-2 rounded text-green-300 font-mono">
+                              {testCase.expectedOutput}
+                            </div>
+                          </div>
+                          {testCase.actualOutput && (
+                            <div className="text-xs">
+                              <div className="text-gray-400 mb-1">实际输出:</div>
+                              <div className="bg-gray-800 p-2 rounded text-blue-300 font-mono">
+                                {testCase.actualOutput}
+                              </div>
+                            </div>
+                          )}
+                          {testCase.error && (
+                            <div className="text-xs">
+                              <div className="text-gray-400 mb-1">错误信息:</div>
+                              <div className="bg-red-900/20 border border-red-500/30 p-2 rounded text-red-300 font-mono">
+                                {testCase.error}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {testCase.actualOutput && (
-                          <div className="text-xs mb-2">
-                            <div className="text-green-400">实际输出: {testCase.actualOutput}</div>
-                          </div>
-                        )}
-                        {testCase.error && (
-                          <div className="text-xs text-red-400 mb-2">
-                            错误: {testCase.error}
-                          </div>
-                        )}
                         <button
                           onClick={() => runTestCase(testCase, true)}
                           disabled={testCase.status === 'running'}
-                          className="w-full bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs disabled:opacity-50"
+                          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
                         >
+                          <FaPlay className="text-xs" />
                           {testCase.status === 'running' ? '运行中...' : '运行测试'}
                         </button>
                       </div>
@@ -506,15 +575,28 @@ export default function WrittenTestPage() {
 
           {/* 隐藏测试用例 */}
           <div>
-            <h3 className="text-md font-semibold text-orange-400 mb-3">隐藏测试用例</h3>
-            <div className="space-y-2">
+            <h3 className="text-md font-semibold text-orange-400 mb-3 flex items-center gap-2">
+              <FaEyeSlash className="text-sm" />
+              隐藏测试用例 ({hiddenTestCases.length})
+            </h3>
+            <div className="space-y-3">
               {hiddenTestCases.map((testCase) => (
-                <div key={testCase.id} className="bg-gray-700 rounded p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">{testCase.name}</span>
-                    <span className={`text-lg ${getStatusColor(testCase.status)}`}>
-                      {getStatusIcon(testCase.status)}
-                    </span>
+                <div key={testCase.id} className="bg-gray-700 rounded-lg border border-gray-600 p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+                        {getStatusIcon(testCase.status)}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-200">{testCase.name}</span>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {testCase.status === 'running' && '运行中...'}
+                          {testCase.status === 'passed' && '通过'}
+                          {testCase.status === 'failed' && '失败'}
+                          {testCase.status === 'pending' && '待运行'}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
