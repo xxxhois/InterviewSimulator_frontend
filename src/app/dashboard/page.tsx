@@ -1,16 +1,27 @@
 'use client';
 
 import { fetchPosts } from '@/api/post';
+import { getUserRecommendations } from '@/api/user';
 import AIbot from '@/assets/AIbot.json';
 import programming from '@/assets/programming.json';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import type { UserRecommendations } from '@/types/user';
 import { Player } from '@lottiefiles/react-lottie-player';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import {
+  FaAmazon,
+  FaBehance,
+  FaBook,
+  FaBuilding,
+  FaBullseye,
+  FaCar,
+  FaPlay
+} from 'react-icons/fa';
+import { SiMeituan } from 'react-icons/si';
 
 // 动态导入echarts组件以避免SSR问题
 //const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
@@ -58,9 +69,11 @@ import { useEffect, useRef, useState } from 'react';
       shadowColor: 'shadow-purple-400/30',
       type: 'icon'
     },
-      {
+    {
       title: '交流社区',
+      description: '与其他求职者交流经验，分享面试心得，获取最新资讯。',
       position: 'md:col-span-1',
+      route: '/posts',
       bgColor: 'bg-white border-2 border-purple-400',
       shadowColor: 'shadow-purple-200/30',
       textColor: 'text-purple-800',
@@ -106,6 +119,8 @@ const MainDashboard = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<UserRecommendations | null>(null);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(true);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -134,234 +149,62 @@ const MainDashboard = () => {
     });
   }, []);
 
-  // // ECharts配置 - 能力雷达图
-  // const skillMatchOption = {
-  //   title: {
-  //     text: '能力雷达图',
-  //     textStyle: {
-  //       color: '#7c3aed',
-  //       fontSize: 14,
-  //       fontWeight: 'bold'
-  //     },
-  //     left: 'center'
-  //   },
-  //   tooltip: {
-  //     trigger: 'item'
-  //   },
-  //   legend: {
-  //     data: ['当前能力', '目标能力'],
-  //     bottom: 5,
-  //     textStyle: {
-  //       color: '#7c3aed'
-  //     }
-  //   },
-  //   radar: {
-  //     indicator: [
-  //       { name: '表达能力', max: 100 },
-  //       { name: '技术知识', max: 100 },
-  //       { name: '情绪稳定', max: 100 },
-  //       { name: '逻辑思维', max: 100 },
-  //       { name: '肢体语言', max: 100 },
-  //       { name: '应变能力', max: 100 }
-  //     ],
-  //     shape: 'circle',
-  //     splitNumber: 5,
-  //     axisName: {
-  //       color: '#7c3aed',
-  //       fontSize: 10
-  //     },
-  //     splitLine: {
-  //       lineStyle: {
-  //         color: ['#e9d5ff']
-  //       }
-  //     },
-  //     splitArea: {
-  //       show: false
-  //     }
-  //   },
-  //   series: [
-  //     {
-  //       name: '能力评估',
-  //       type: 'radar',
-  //       data: [
-  //         {
-  //           value: [75, 85, 70, 80, 65, 72],
-  //           name: '当前能力',
-  //           areaStyle: {
-  //             color: 'rgba(147, 51, 234, 0.4)'
-  //           },
-  //           lineStyle: {
-  //             color: '#9333ea',
-  //             width: 3
-  //           },
-  //           itemStyle: {
-  //             color: '#9333ea'
-  //           }
-  //         },
-  //         {
-  //           value: [90, 95, 85, 90, 80, 88],
-  //           name: '目标能力',
-  //           areaStyle: {
-  //             color: 'rgba(236, 72, 153, 0.4)'
-  //           },
-  //           lineStyle: {
-  //             color: '#ec4899',
-  //             width: 3,
-  //             type: 'dashed'
-  //           },
-  //           itemStyle: {
-  //             color: '#ec4899'
-  //           }
-  //         }
-  //       ]
-  //     }
-  //   ],
-  //   animation: true,
-  //   animationDuration: 2000,
-  //   animationEasing: 'cubicOut'
-  // };
+  // 获取个性化推荐数据
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        setLoadingRecommendations(true);
+        const data = await getUserRecommendations();
+        setRecommendations(data);
+      } catch (error) {
+        console.error('获取推荐数据失败:', error);
+        // 使用默认数据作为fallback
+        setRecommendations({
+          currentGoal: {
+            title: '前端开发工程师',
+            company: '字节跳动',
+            salary: '25-35K',
+            matchRate: 85
+          },
+          recommendedCompanies: [
+            { name: '字节跳动', matchRate: 85, position: '前端开发工程师' },
+            { name: '阿里巴巴', matchRate: 82, position: '前端开发工程师' },
+            { name: '腾讯', matchRate: 78, position: '前端开发工程师' },
+            { name: '美团', matchRate: 75, position: '前端开发工程师' },
+            { name: '滴滴', matchRate: 72, position: '前端开发工程师' }
+          ],
+          recommendedTopics: [
+            { name: 'React高级特性', difficulty: '困难', matchRate: 90, count: 156 },
+            { name: 'TypeScript实战', difficulty: '中等', matchRate: 88, count: 234 },
+            { name: '前端性能优化', difficulty: '困难', matchRate: 85, count: 189 },
+            { name: 'Vue3生态', difficulty: '中等', matchRate: 82, count: 167 },
+            { name: '微前端架构', difficulty: '困难', matchRate: 80, count: 98 }
+          ]
+        });
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
 
-  // // ECharts配置 - 技能饼状图
-  // const pieOption = {
-  //   title: {
-  //     text: '技能分布',
-  //     textStyle: {
-  //       color: '#7c3aed',
-  //       fontSize: 14,
-  //       fontWeight: 'bold'
-  //     },
-  //     left: 'center'
-  //   },
-  //   tooltip: {
-  //     trigger: 'item',
-  //     formatter: '{a} <br/>{b}: {c} ({d}%)'
-  //   },
-  //   legend: {
-  //     orient: 'vertical',
-  //     left: 'left',
-  //     textStyle: {
-  //       color: '#7c3aed'
-  //     }
-  //   },
-  //   series: [
-  //     {
-  //       name: '技能掌握',
-  //       type: 'pie',
-  //       radius: ['40%', '70%'],
-  //       center: ['60%', '50%'],
-  //       avoidLabelOverlap: false,
-  //       label: {
-  //         show: false,
-  //         position: 'center'
-  //       },
-  //       emphasis: {
-  //         label: {
-  //           show: true,
-  //           fontSize: '16',
-  //           fontWeight: 'bold',
-  //           color: '#7c3aed'
-  //         }
-  //       },
-  //       labelLine: {
-  //         show: false
-  //       },
-  //       data: [
-  //         { value: 35, name: '前端开发', itemStyle: { color: '#8b5cf6' } },
-  //         { value: 25, name: '后端开发', itemStyle: { color: '#a855f7' } },
-  //         { value: 20, name: '算法设计', itemStyle: { color: '#c084fc' } },
-  //         { value: 15, name: '系统设计', itemStyle: { color: '#ec4899' } },
-  //         { value: 5, name: '其他技能', itemStyle: { color: '#f59e0b' } }
-  //       ]
-  //     }
-  //   ],
-  //   animation: true,
-  //   animationDuration: 2000,
-  //   animationEasing: 'cubicOut'
-  // };
+    fetchRecommendations();
+  }, []);
 
-  // // ECharts配置 - 能力趋势曲线图
-  // const trendOption = {
-  //   title: {
-  //     text: '能力提升趋势',
-  //     textStyle: {
-  //       color: '#7c3aed',
-  //       fontSize: 14,
-  //       fontWeight: 'bold'
-  //     },
-  //     left: 'center'
-  //   },
-  //   tooltip: {
-  //     trigger: 'axis',
-  //     axisPointer: {
-  //       type: 'cross'
-  //     }
-  //   },
-  //   grid: {
-  //     left: '3%',
-  //     right: '4%',
-  //     bottom: '3%',
-  //     containLabel: true
-  //   },
-  //   xAxis: {
-  //     type: 'category',
-  //     data: ['第1次', '第2次', '第3次', '第4次', '第5次', '第6次'],
-  //     axisLine: {
-  //       lineStyle: {
-  //         color: '#7c3aed'
-  //       }
-  //     },
-  //     axisLabel: {
-  //       color: '#7c3aed'
-  //     }
-  //   },
-  //   yAxis: {
-  //     type: 'value',
-  //     min: 0,
-  //     max: 100,
-  //     axisLine: {
-  //       lineStyle: {
-  //         color: '#7c3aed'
-  //       }
-  //     },
-  //     axisLabel: {
-  //       color: '#7c3aed'
-  //     }
-  //   },
-  //   series: [
-  //     {
-  //       name: '综合评分',
-  //       type: 'line',
-  //       smooth: true,
-  //       data: [65, 70, 78, 80, 85, 88],
-  //       lineStyle: {
-  //         color: '#8b5cf6',
-  //         width: 4
-  //       },
-  //       itemStyle: {
-  //         color: '#8b5cf6',
-  //         borderWidth: 3,
-  //         borderColor: '#fff'
-  //       },
-  //       areaStyle: {
-  //         color: {
-  //           type: 'linear',
-  //           x: 0,
-  //           y: 0,
-  //           x2: 0,
-  //           y2: 1,
-  //           colorStops: [
-  //             { offset: 0, color: 'rgba(139, 92, 246, 0.7)' },
-  //             { offset: 0.5, color: 'rgba(168, 85, 247, 0.4)' },
-  //             { offset: 1, color: 'rgba(236, 72, 153, 0.1)' }
-  //           ]
-  //         }
-  //       }
-  //     }
-  //   ],
-  //   animation: true,
-  //   animationDuration: 2000,
-  //   animationEasing: 'cubicOut'
-  // };
+  const getCompanyIcon = (companyName: string) => {
+    switch (companyName) {
+      case '字节跳动':
+        return <FaBehance className="text-2xl text-purple-600" />;
+      case '阿里巴巴':
+        return <FaAmazon className="text-2xl text-purple-600" />;
+      case '腾讯':
+        return <FaCar className="text-2xl text-purple-600" />;
+      case '美团':
+        return <SiMeituan className="text-2xl text-purple-600" />;
+      case '滴滴':
+        return <FaPlay className="text-2xl text-purple-600" />;
+      default:
+        return <FaBuilding className="text-2xl text-purple-600" />;
+    }
+  };
 
   return (
     <ProtectedRoute>
@@ -509,7 +352,7 @@ const MainDashboard = () => {
         ) : (
           <div className="flex flex-col items-center">
             <span className="text-6xl mb-2">{features[3].icon}</span>
-            <div className="w-16 h-1 bg-white/30 rounded-full"></div>
+            <div className="w-16 h-1 bg-purple-300 rounded-full"></div>
           </div>
         )}
       </div>
@@ -525,18 +368,16 @@ const MainDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          <h2 className="text-3xl font-bold text-purple-800 mb-6 text-center">🔥 热门题库</h2>
+          <h2 className="text-3xl font-bold text-purple-800 mb-6 text-center flex items-center justify-center">
+            <span className="mr-2"><FaBook className="inline-block text-purple-600" /></span>
+            热门题库
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {hotTopics.map((topic, index) => (
               <motion.div
                 key={index}
-                className="bg-white rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 border border-purple-200"
+                className="bg-white rounded-xl p-4 shadow-lg border border-purple-200 cursor-pointer"
                 onClick={() => router.push('/interview/special')}
-                whileHover={{ 
-                  y: -5,
-                  scale: 1.02,
-                  boxShadow: "0 10px 25px -5px rgba(139, 92, 246, 0.2)"
-                }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className={`${topic.color} w-12 h-12 rounded-lg flex items-center justify-center mb-3 shadow-md`}>
@@ -565,118 +406,115 @@ const MainDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.7 }}
         >
-          <h2 className="text-3xl font-bold text-purple-800 mb-8 text-center">🎯 个性化路径推荐</h2>
+          <h2 className="text-3xl font-bold text-purple-800 mb-8 text-center flex items-center justify-center">
+            <FaBullseye className="mr-3 text-purple-600" />
+            个性化路径推荐
+          </h2>
           
-          {/* 当前目标 */}
-          <div className="mb-8">
-            <h3 className="text-xl font-bold text-purple-700 mb-4">🎯 当前目标</h3>
-            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-              <div className="flex items-center justify-between">
+          {loadingRecommendations ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+              <p className="text-gray-500">正在加载推荐数据...</p>
+            </div>
+          ) : recommendations ? (
+            <>
+              {/* 当前目标 */}
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-purple-700 mb-4 flex items-center">
+                  <FaBullseye className="mr-2 text-purple-600" />
+                  当前目标
+                </h3>
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-lg font-bold text-purple-800">{recommendations.currentGoal.title}</h4>
+                      <p className="text-purple-600">{recommendations.currentGoal.company} • {recommendations.currentGoal.salary}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-purple-600">{recommendations.currentGoal.matchRate}%</div>
+                      <div className="text-sm text-purple-500">匹配度</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* 推荐企业 */}
                 <div>
-                  <h4 className="text-lg font-bold text-purple-800">{recommendations.currentGoal.title}</h4>
-                  <p className="text-purple-600">{recommendations.currentGoal.company} • {recommendations.currentGoal.salary}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-purple-600">{recommendations.currentGoal.matchRate}%</div>
-                  <div className="text-sm text-purple-500">匹配度</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* 推荐企业 */}
-            <div>
-              <h3 className="text-xl font-bold text-purple-700 mb-4">🏢 推荐企业</h3>
-              <div className="space-y-3">
-                {recommendations.recommendedCompanies.map((company, index) => (
-                  <motion.div
-                    key={index}
-                    className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-all duration-300 cursor-pointer"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">{company.logo}</span>
-                        <div>
-                          <h4 className="font-semibold text-purple-800">{company.name}</h4>
-                          <p className="text-sm text-gray-600">{company.position}</p>
+                  <h3 className="text-xl font-bold text-purple-700 mb-4 flex items-center">
+                    <FaBuilding className="mr-2 text-purple-600" />
+                    推荐企业
+                  </h3>
+                  <div className="space-y-3">
+                    {recommendations.recommendedCompanies.map((company, index) => (
+                      <motion.div
+                        key={index}
+                        className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-all duration-300 cursor-pointer"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            {getCompanyIcon(company.name)}
+                            <div>
+                              <h4 className="font-semibold text-purple-800">{company.name}</h4>
+                              <p className="text-sm text-gray-600">{company.position}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-purple-600">{company.matchRate}%</div>
+                            <div className="text-xs text-purple-500">匹配度</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-purple-600">{company.matchRate}%</div>
-                        <div className="text-xs text-purple-500">匹配度</div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
 
-            {/* 推荐题库 */}
-            <div>
-              <h3 className="text-xl font-bold text-purple-700 mb-4">📚 推荐题库</h3>
-              <div className="space-y-3">
-                {recommendations.recommendedTopics.map((topic, index) => (
-                  <motion.div
-                    key={index}
-                    className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-all duration-300 cursor-pointer"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-purple-800">{topic.name}</h4>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            topic.difficulty === '困难' ? 'bg-red-100 text-red-600' :
-                            topic.difficulty === '中等' ? 'bg-yellow-100 text-yellow-600' :
-                            'bg-green-100 text-green-600'
-                          }`}>
-                            {topic.difficulty}
-                          </span>
-                          <span className="text-xs text-gray-500">{topic.count}题</span>
+                {/* 推荐题库 */}
+                <div>
+                  <h3 className="text-xl font-bold text-purple-700 mb-4 flex items-center">
+                    <FaBook className="mr-2 text-purple-600" />
+                    推荐题库
+                  </h3>
+                  <div className="space-y-3">
+                    {recommendations.recommendedTopics.map((topic, index) => (
+                      <motion.div
+                        key={index}
+                        className="bg-white rounded-lg p-4 border border-purple-200 hover:shadow-md transition-all duration-300 cursor-pointer"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-purple-800">{topic.name}</h4>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                topic.difficulty === '困难' ? 'bg-red-100 text-red-600' :
+                                topic.difficulty === '中等' ? 'bg-yellow-100 text-yellow-600' :
+                                'bg-green-100 text-green-600'
+                              }`}>
+                                {topic.difficulty}
+                              </span>
+                              <span className="text-xs text-gray-500">{topic.count}题</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-purple-600">{topic.matchRate}%</div>
+                            <div className="text-xs text-purple-500">匹配度</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-purple-600">{topic.matchRate}%</div>
-                        <div className="text-xs text-purple-500">匹配度</div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">暂无推荐数据</p>
             </div>
-          </div>
-
-          {/* 多维度能力评估
-          <div className="mt-8">
-            <h3 className="text-xl font-bold text-purple-700 mb-4">📊 多维度能力评估</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <ReactECharts 
-                  option={skillMatchOption} 
-                  style={{ height: '300px' }}
-                  opts={{ renderer: 'canvas' }}
-                />
-              </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <ReactECharts 
-                  option={pieOption} 
-                  style={{ height: '300px' }}
-                  opts={{ renderer: 'canvas' }}
-                />
-              </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <ReactECharts 
-                  option={trendOption} 
-                  style={{ height: '300px' }}
-                  opts={{ renderer: 'canvas' }}
-                />
-              </div>
-            </div>
-          </div> */}
+          )}
         </motion.div>
       </div>
     </div>

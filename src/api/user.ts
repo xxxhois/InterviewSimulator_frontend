@@ -1,5 +1,6 @@
 import { apiRequest } from '@/api/apiRequest';
-import type { LoginResponse } from '@/types/user';
+import type { LoginResponse, UserRecommendations } from '@/types/user';
+
 async function registerUser(username: string, password: string): Promise<any> {
   return await apiRequest({
     method: 'POST',
@@ -15,5 +16,15 @@ async function loginUser(username: string, password: string): Promise<LoginRespo
     data: { username, password },
   });
 }
-export { loginUser, registerUser };
+
+// 获取个性化推荐数据
+async function getUserRecommendations(): Promise<UserRecommendations> {
+  const response = await apiRequest({
+    method: 'GET',
+    url: '/users/recommendations/',
+  });
+  return response.data;
+}
+
+export { getUserRecommendations, loginUser, registerUser };
 
