@@ -1,18 +1,18 @@
 import {
   NonAlgorithmSubmissionAnalysis,
-  ProblemBank,
   ProblemBankDetailResponse,
+  ProblemBankResponse,
   ProblemDetailResponse
 } from '@/types/problem';
 import { apiRequest } from './apiRequest';
 
-export async function getProblemBanks(): Promise<ProblemBank[]> {
+export async function getProblemBanks(): Promise<ProblemBankResponse> {
   const res = await apiRequest({
     method: 'GET',
     url: '/code/problem-banks/',
     attachToken: true,
   });
-  return res.data;
+  return res;
 }
 
 export async function getProblemDetail(problemSetId: string): Promise<ProblemDetailResponse> {

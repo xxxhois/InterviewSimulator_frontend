@@ -502,12 +502,12 @@ export default function EvaluationModal({ open, onClose }: EvaluationModalProps)
                         evalData.question_analysis.map((qa, idx) => (
                           <div key={idx} className="bg-white/90 rounded-2xl p-4 border border-purple-200 shadow">
                             <div className="text-sm font-semibold text-purple-700 mb-2">Q{idx + 1}. {qa.question}</div>
-                            {/* {qa.answer ? (
+                            {qa.answer ? (
                               <div className="mb-2">
                                 <div className="text-xs text-purple-600 font-medium mb-1">候选人回答</div>
                                 <div className="text-xs text-gray-700 whitespace-pre-line">{qa.answer}</div>
                               </div>
-                            ) : null} */}
+                            ) : null}
                             <div>
                               <div className="text-xs text-purple-600 font-medium mb-1">AI 评析</div>
                               <div className="text-xs text-gray-700 whitespace-pre-line">{qa.ai_analysis || '暂无评析'}</div>

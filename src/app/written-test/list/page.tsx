@@ -99,7 +99,9 @@ export default function WrittenTestListPage() {
         setLoading(true);
         setError(null);
         const response = await getProblemBanks();
+        console.log('API响应:', response); // 调试信息
         if (response.success) {
+          console.log('题库数据:', response.data); // 调试信息
           setProblemBanks(response.data);
         } else {
           setError('获取题库数据失败');

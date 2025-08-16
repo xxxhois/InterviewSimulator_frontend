@@ -10,6 +10,8 @@ export interface ProblemBank {
   tags: string[];
   color: string;
   is_algorithm: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ProblemBankResponse {
