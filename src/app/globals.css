@@ -24,3 +24,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 禁用所有使用 dangerouslySetInnerHTML 的地方的链接点击 */
+.prose a,
+.prose-purple a,
+[class*="prose"] a {
+  pointer-events: none !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  cursor: default !important;
+}
+
+/* 禁用帖子卡片中的链接 */
+[style*="dangerouslySetInnerHTML"] a,
+[class*="text-gray-700"] a {
+  pointer-events: none !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  cursor: default !important;
+}
+
+/* 禁用运行结果中的链接 */
+pre a {
+  pointer-events: none !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  cursor: default !important;
+}

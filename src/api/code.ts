@@ -18,7 +18,7 @@ export async function getProblemBanks(): Promise<ProblemBankResponse> {
 export async function getProblemDetail(problemSetId: string): Promise<ProblemDetailResponse> {
   const res = await apiRequest({
     method: 'GET',
-    url: `/code/problem-banks/${problemSetId}/`,
+    url: `/code/problem-banks/${problemSetId}/problems/`,
     attachToken: true,
   });
   return res;
@@ -38,7 +38,7 @@ export async function runCode(code: string, languageId: number, input: string = 
     method: 'POST',
     url: '/code/run-code/',
     data: {
-      code,
+      source_code: code,
       language_id: languageId,
       input,
     },
