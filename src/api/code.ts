@@ -1,4 +1,6 @@
 import {
+  CodeEvaluationResponse,
+  CodeSubmissionRequest,
   NonAlgorithmSubmissionAnalysis,
   ProblemBankDetailResponse,
   ProblemBankResponse,
@@ -40,7 +42,7 @@ export async function runCode(code: string, languageId: number, input: string = 
     data: {
       source_code: code,
       language_id: languageId,
-      input,
+      stdin: input,
     },
     attachToken: true,
   });
@@ -61,6 +63,41 @@ export async function submitProblemAnswers(
       time_spent: timeSpent,
       completion_rate: completionRate,
     },
+    attachToken: true,
+  });
+  return res;
+}
+
+/**
+ * 提交代码评测
+ */
+export async function evaluateCode(submission: CodeSubmissionRequest): Promise<CodeEvaluationResponse> {
+  const res = await apiRequest({
+    method: 'POST',
+    url: '/code/evaluate-code/',
+    data: submission,
+    attachToken: true,
+  });
+  return res;
+}
+
+export async function getHint(requestBody: {
+  problem_id: string;
+  problem_description: string;
+  problem_question: string;
+  current_code: string;
+  language: string;
+}): Promise<{
+  success: boolean;
+  data: {
+    code_suggestion: string;
+    analysis: string;
+  };
+}> {
+  const res = await apiRequest({
+    method: 'POST',
+    url: '/code/code-hint/',
+    data: requestBody,
     attachToken: true,
   });
   return res;

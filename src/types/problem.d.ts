@@ -146,3 +146,72 @@ export interface NonAlgorithmSubmissionAnalysisResponse {
   data: NonAlgorithmSubmissionAnalysis;
 }
 
+/**
+ * 代码题提交请求
+ */
+export interface CodeSubmissionRequest {
+  problem_answers: {
+    problem_id: string;
+    source_code: string;
+  }[];
+}
+
+/**
+ * 测试用例结果
+ */
+export interface TestCaseResult {
+  input: string;
+  expected: string;
+  actual: string;
+  error: string;
+  passed: boolean;
+}
+
+/**
+ * 测试结果汇总
+ */
+export interface TestSummary {
+  public_passed: number;
+  public_total: number;
+  hidden_passed: number;
+  hidden_total: number;
+}
+
+/**
+ * 测试结果
+ */
+export interface TestResults {
+  public_cases: TestCaseResult[];
+  hidden_cases: TestCaseResult[];
+  summary: TestSummary;
+}
+
+/**
+ * 代码评析
+ */
+export interface CodeEvaluation {
+  score: number;
+  test_analysis: string;
+  strengths: string;
+  problems: string;
+  suggestions: string;
+}
+
+/**
+ * 单道代码题的评测结果
+ */
+export interface CodeProblemResult {
+  problem_id: string;
+  problem_title: string;
+  test_results: TestResults;
+  evaluation: CodeEvaluation;
+}
+
+/**
+ * 代码评测响应
+ */
+export interface CodeEvaluationResponse {
+  success: boolean;
+  data: CodeProblemResult[];
+}
+
