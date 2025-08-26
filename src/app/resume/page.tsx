@@ -11,12 +11,10 @@ import {
   deleteWorkExperience,
   getResumeDetail,
   getResumeList,
-  mapThirdPartyResume,
   handleResumeUpload
 } from '@/api/resume';
 import Navigation from '@/components/Navigation';
 import { showToast } from '@/components/Toast';
-import { Resume } from '@/types/resume';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
@@ -27,6 +25,17 @@ const emptyForm = {
   graduation_date: '',
   education_level: '',
   expected_position: '',
+};
+
+// 生成唯一简历名称的辅助函数
+const generateUniqueResumeName = (baseName: string = '我的简历') => {
+  const timestamp = new Date().toLocaleString('zh-CN', { 
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  }).replace(/[\/\s:]/g, '');
+  return `${baseName}_${timestamp}`;
 };
 
 export default function ResumePage() {
@@ -42,6 +51,7 @@ export default function ResumePage() {
   const [customSections, setCustomSections] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [resumeParsed, setResumeParsed] = useState<any>(null);
+  const [skipDetailFetch, setSkipDetailFetch] = useState(false);
   // 其他分区略，实际可用 useState 管理
 
   // const mockResumeList = [
@@ -66,8 +76,18 @@ export default function ResumePage() {
       setFormBasic({ ...emptyForm });
       setBasicSubmitted(false);
       setWorkExperiences([]);
+      setProjectExperiences([]);
+      setEducationExperiences([]);
+      setCustomSections([]);
       return;
     }
+    
+    // 如果是新建简历且正在创建中，或者需要跳过详情拉取，则不拉取详情
+    if (isCreating || skipDetailFetch) {
+      setSkipDetailFetch(false); // 重置标记
+      return;
+    }
+    
     setIsLoading(true);
     console.log('拉取简历详情',selectedResumeId)
     getResumeDetail(selectedResumeId).then(detail => {
@@ -89,12 +109,18 @@ export default function ResumePage() {
       setBasicSubmitted(true);
       setIsLoading(false);
     });
-  }, [selectedResumeId]);
+  }, [selectedResumeId, isCreating]);
 
   // 新建简历
   const handleCreateNew = () => {
     setSelectedResumeId(null);
-    setFormBasic({ ...emptyForm });
+    // 生成唯一的简历名称
+    const uniqueResumeName = generateUniqueResumeName();
+    
+    setFormBasic({ 
+      ...emptyForm, 
+      resume_name: uniqueResumeName 
+    });
     setBasicSubmitted(false);
     setIsCreating(true);
   };
@@ -123,13 +149,17 @@ export default function ResumePage() {
 const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const parsed = await handleResumeUpload(e);
   console.log('parsed',parsed)
-  // const parsed = mapThirdPartyResume(mapped);
-  // console.log('parsed',parsed)
   if (parsed) {
     setResumeParsed(parsed);
     setSelectedResumeId(null);
+    setSkipDetailFetch(true); // 设置跳过详情拉取标记
+    
+    // 生成唯一的简历名称，避免重复
+    const baseName = parsed.name || '我的简历';
+    const uniqueResumeName = generateUniqueResumeName(baseName);
+    
     setFormBasic({
-      resume_name: parsed.name || '',
+      resume_name: uniqueResumeName,
       real_name: parsed.name || '',
       age: parsed.age ? String(parsed.age) : '',
       graduation_date: parsed.graduation_date || '',
@@ -166,15 +196,40 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       showToast('基础信息已保存');
       setBasicSubmitted(true);
       setIsCreating(false);
-      // 新建后刷新列表并选中新建项
-      getResumeList().then((resList: any) => {
-        setResumeList(resList.resumes || []);
-        if (resList.resumes && resList.resumes.length > 0) {
-          setSelectedResumeId(resList.resumes[resList.resumes.length - 1].resume_id);
-        }
-      });
-    } catch (err) {
-      showToast('保存失败');
+      
+      // 如果是新建简历（OCR解析后的情况），直接选中新建的resumeId
+      if (!selectedResumeId && res.resume_id) {
+        // 更新本地简历列表，添加新建的简历
+        const newResume = {
+          resume_id: res.resume_id,
+          resume_name: formBasic.resume_name
+        };
+        setResumeList(prev => [...prev, newResume]);
+        // 设置跳过详情拉取标记，然后设置selectedResumeId
+        setSkipDetailFetch(true);
+        setSelectedResumeId(res.resume_id);
+      } else if (!selectedResumeId && res.resume && res.resume.resume_id) {
+        // 如果API返回的是嵌套结构
+        const newResume = {
+          resume_id: res.resume.resume_id,
+          resume_name: formBasic.resume_name
+        };
+        setResumeList(prev => [...prev, newResume]);
+        // 设置跳过详情拉取标记，然后设置selectedResumeId
+        setSkipDetailFetch(true);
+        setSelectedResumeId(res.resume.resume_id);
+      }
+    } catch (err: any) {
+      console.error('保存失败:', err);
+      // 检查是否是重复名称错误
+      if (err.message && err.message.includes('Duplicate entry') && err.message.includes('resume_name')) {
+        showToast('简历名称已存在，请修改简历名称后重试');
+        // 自动生成新的简历名称
+        const newResumeName = generateUniqueResumeName(formBasic.resume_name.split('_')[0]);
+        setFormBasic(prev => ({ ...prev, resume_name: newResumeName }));
+      } else {
+        showToast('保存失败: ' + (err.message || '未知错误'));
+      }
     }
   };
 
@@ -225,7 +280,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
     const exp = workExperiences[idx];
     try {
-      await createOrUpdateWorkExperience({
+      const res = await createOrUpdateWorkExperience({
         resume_id: selectedResumeId,
         work_id: exp.id,
         start_date: exp.start_date,
@@ -236,6 +291,14 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         work_content: exp.work_content,
         is_internship: exp.is_internship,
       });
+      // 更新本地数据，添加或更新work_id
+      if (res.work_id) {
+        setWorkExperiences(prev => {
+          const newList = [...prev];
+          newList[idx] = { ...newList[idx], id: res.work_id };
+          return newList;
+        });
+      }
       showToast('工作经历已保存');
     } catch (err) {
       showToast('保存失败');
@@ -287,7 +350,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
     const exp = projectExperiences[idx];
     try {
-      await createOrUpdateProjectExperience({
+      const res = await createOrUpdateProjectExperience({
         resume_id: selectedResumeId,
         project_id: exp.id,
         start_date: exp.start_date,
@@ -297,6 +360,14 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         project_link: exp.project_link,
         project_content: exp.project_content,
       });
+      // 更新本地数据，添加或更新project_id
+      if (res.project_id) {
+        setProjectExperiences(prev => {
+          const newList = [...prev];
+          newList[idx] = { ...newList[idx], id: res.project_id };
+          return newList;
+        });
+      }
       showToast('项目经历已保存');
     } catch (err) {
       showToast('保存失败');
@@ -342,7 +413,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
     const exp = educationExperiences[idx];
     try {
-      await createOrUpdateEducationExperience({
+      const res = await createOrUpdateEducationExperience({
         resume_id: selectedResumeId,
         education_id: exp.id,
         start_date: exp.start_date,
@@ -352,6 +423,14 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         major: exp.major,
         school_experience: exp.school_experience,
       });
+      // 更新本地数据，添加或更新education_id
+      if (res.education_id) {
+        setEducationExperiences(prev => {
+          const newList = [...prev];
+          newList[idx] = { ...newList[idx], id: res.education_id };
+          return newList;
+        });
+      }
       showToast('教育经历已保存');
     } catch (err) {
       showToast('保存失败');
@@ -393,12 +472,20 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
     const exp = customSections[idx];
     try {
-      await createOrUpdateCustomSection({
+      const res = await createOrUpdateCustomSection({
         resume_id: selectedResumeId,
         custom_id: exp.id,
         title: exp.title,
         content: exp.content,
       });
+      // 更新本地数据，添加或更新custom_id
+      if (res.custom_id) {
+        setCustomSections(prev => {
+          const newList = [...prev];
+          newList[idx] = { ...newList[idx], id: res.custom_id };
+          return newList;
+        });
+      }
       showToast('自定义分区已保存');
     } catch (err) {
       showToast('保存失败');

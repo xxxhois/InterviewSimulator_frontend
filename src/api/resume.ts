@@ -1,13 +1,13 @@
-import { ResumeList, Resume } from "@/types/resume";
-import { apiRequest } from "./apiRequest";
 import { showToast } from "@/components/Toast";
+import { Resume } from "@/types/resume";
+import { apiRequest } from "./apiRequest";
 /**
  * 识别简历内容
  * @param file 上传的文件对象
  * @returns 识别结果
  */
 export async function recognizeResume(file: File): Promise<any> {
-  const appcode = 'b38cda4d3a924db7aad47819c827e759'; 
+  const appcode = '24daa66d82c04560bbd6a6c8a1378d1d';
   const url = 'http://jljxjk.market.alicloudapi.com/aliyunapp/aliyunservice.aspx';
 
   // 支持的扩展名
