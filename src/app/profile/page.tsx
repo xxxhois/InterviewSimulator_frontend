@@ -4,6 +4,7 @@ import { getPositionList, searchPositionList } from '@/api/position';
 import { getProfile, updateProfile } from '@/api/profile';
 //import { handleResumeUpload, recognizeResume } from '@/api/resume';
 import { getUserEvaluationOverview } from '@/api/evaluation';
+import { getInterviewList } from '@/api/interview';
 import defaultAvatar from '@/assets/企鹅.jpg';
 import Navigation from '@/components/Navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -71,12 +72,34 @@ export default function ProfilePage() {
         // 暂时保留模拟数据，等待对应的API接口
         setPracticeRecords([
           { id: 1, title: '算法与数据结构', date: '2024-04-10', score: 85 },
-          { id: 2, title: 'React Hooks详解', date: '2024-04-08', score: 90 }
+          { id: 2, title: 'React Hooks详解', date: '2024-04-08', score: 90 },
+          { id: 3, title: '浏览器原理', date: '2024-04-03', score: 88 },
+          { id: 4, title: '网络协议', date: '2024-03-30', score: 92 },
+          { id: 5, title: '系统设计', date: '2024-03-25', score: 81 },
+          { id: 6, title: 'TypeScript 进阶', date: '2024-03-18', score: 87 }
         ]);
-        setInterviewRecords([
-          { id: 1, company: '字节跳动', position: '前端开发', date: '2024-04-05', result: '通过' },
-          { id: 2, company: '腾讯', position: '前端开发', date: '2024-03-28', result: '未通过' }
-        ]);
+
+        // 动态获取面试历史记录
+        try {
+          const interviewRes = await getInterviewList();
+          const list = Array.isArray(interviewRes?.interviews) ? interviewRes.interviews : [];
+          setInterviewRecords(list.map((it: any) => ({
+            id: it.id,
+            company: it.company_name || '未知公司',
+            position: it.position_name || '未知职位',
+            date: (it.interview_time || it.created_at || '').slice(0, 10),
+            result: it.result || (it.status === 'passed' ? '通过' : it.status === 'failed' ? '未通过' : '待定')
+          })));
+        } catch (e) {
+          // 动态获取失败时回退为静态示例
+          setInterviewRecords([
+            { id: 1, company: '字节跳动', position: '前端开发', date: '2024-04-05', result: '通过' },
+            { id: 2, company: '腾讯', position: '前端开发', date: '2024-03-28', result: '未通过' },
+            { id: 3, company: '阿里巴巴', position: '前端工程师', date: '2024-03-20', result: '待定' },
+            { id: 4, company: '美团', position: '前端', date: '2024-03-12', result: '通过' },
+            { id: 5, company: '拼多多', position: '前端开发', date: '2024-03-02', result: '未通过' }
+          ]);
+        }
 
 
         
@@ -312,27 +335,29 @@ export default function ProfilePage() {
           {/* 简历和记录两列布局 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* 简历列表 */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200">
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200 h-[420px] flex flex-col">
               <h3 className="text-xl font-bold text-purple-700 mb-4">我的简历</h3>
-              {resumes.length > 0 ? (
-                <ul>
-                  {resumes.map(resume => (
-                    <li key={resume.resume_id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div>
-                        <span className="font-semibold text-purple-800">{resume.resume_name}</span>
-                        <span className="ml-4 text-gray-500">{resume.expected_position}</span>
-                        <span className={`ml-4 px-2 py-1 rounded text-xs ${resume.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{resume.completed ? '已完善' : '未完善'}</span>
-                      </div>
-                      <span className="text-xs text-gray-400">更新于 {resume.updated}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-gray-500 text-center py-4">还没有简历</div>
-              )}
+              <div className="flex-1 overflow-y-auto">
+                {resumes.length > 0 ? (
+                  <ul className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {resumes.map(resume => (
+                      <li key={resume.resume_id} className="border rounded-lg p-3 hover:shadow transition">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-purple-800 truncate">{resume.resume_name}</span>
+                          <span className={`ml-2 px-2 py-0.5 rounded text-xs ${resume.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{resume.completed ? '已完善' : '未完善'}</span>
+                        </div>
+                        <div className="text-gray-500 text-sm mt-1 truncate">{resume.expected_position}</div>
+                        <div className="text-xs text-gray-400 mt-2">更新于 {resume.updated}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-500 text-center py-4">还没有简历</div>
+                )}
+              </div>
             </div>
             {/* 刷题/面试记录Tab */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200">
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-200 h-[420px] flex flex-col">
               <h3 className="text-xl font-bold text-purple-700 mb-4">学习与面试记录</h3>
               <div className="flex space-x-4 mb-4">
                 <button
@@ -348,36 +373,34 @@ export default function ProfilePage() {
                   刷题记录
                 </button>
               </div>
-              {activeTab === 'interview' ? (
-                <ul>
-                  {interviewRecords.map(record => (
-                    <li key={record.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div>
-                        <span className="font-semibold text-purple-800">{record.company}</span>
-                        <span className="ml-4 text-gray-500">{record.position}</span>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-gray-500">{record.date}</span>
-                        <span className={`font-bold ${record.result === '通过' ? 'text-green-600' : 'text-red-600'}`}>{record.result}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <ul>
-                  {practiceRecords.map(record => (
-                    <li key={record.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                      <div>
-                        <span className="font-semibold text-purple-800">{record.title}</span>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-gray-500">{record.date}</span>
-                        <span className="text-purple-600 font-bold">{record.score}分</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="flex-1 overflow-y-auto">
+                {activeTab === 'interview' ? (
+                  <ul className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {interviewRecords.map(record => (
+                      <li key={record.id} className="border rounded-lg p-3 hover:shadow transition">
+                        <div className="font-semibold text-purple-800 truncate">{record.company}</div>
+                        <div className="text-gray-500 text-sm mt-1 truncate">{record.position}</div>
+                        <div className="flex items-center justify-between mt-2 text-sm">
+                          <span className="text-gray-500">{record.date}</span>
+                          <span className={`font-bold ${record.result === '通过' ? 'text-green-600' : record.result === '未通过' ? 'text-red-600' : 'text-yellow-600'}`}>{record.result}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {practiceRecords.map(record => (
+                      <li key={record.id} className="border rounded-lg p-3 hover:shadow transition">
+                        <div className="font-semibold text-purple-800 truncate">{record.title}</div>
+                        <div className="flex items-center justify-between mt-2 text-sm">
+                          <span className="text-gray-500">{record.date}</span>
+                          <span className="text-purple-600 font-bold">{record.score}分</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
           {/* 能力评估 */}

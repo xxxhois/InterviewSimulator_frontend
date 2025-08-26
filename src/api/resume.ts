@@ -331,6 +331,23 @@ export function mapThirdPartyResume(data: any): Resume {
 }
 
 /**
+ * 应用简历优化建议
+ * @param data 包含resume_id和apply的对象
+ * @returns Promise<any>
+ */
+export const applyResumeOptimization = async (data: {
+  resume_id: number;
+  apply: boolean;
+}) => {
+  return await apiRequest({
+    method: 'POST',
+    url: '/users/resume/optimize/apply/',
+    data,
+    attachToken: true,
+  });
+};
+
+/**
  * 获取简历优化建议（流式响应）
  * @param resumeId 简历ID
  * @param message 用户消息
