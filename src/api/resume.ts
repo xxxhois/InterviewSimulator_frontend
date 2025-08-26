@@ -1,13 +1,13 @@
-import { ResumeList, Resume } from "@/types/resume";
-import { apiRequest } from "./apiRequest";
 import { showToast } from "@/components/Toast";
+import { Resume } from "@/types/resume";
+import { apiRequest } from "./apiRequest";
 /**
  * 识别简历内容
  * @param file 上传的文件对象
  * @returns 识别结果
  */
 export async function recognizeResume(file: File): Promise<any> {
-  const appcode = 'b38cda4d3a924db7aad47819c827e759'; 
+  const appcode = '24daa66d82c04560bbd6a6c8a1378d1d';
   const url = 'http://jljxjk.market.alicloudapi.com/aliyunapp/aliyunservice.aspx';
 
   // 支持的扩展名
@@ -329,3 +329,49 @@ export function mapThirdPartyResume(data: any): Resume {
     ]
   };
 }
+
+/**
+ * 获取简历优化建议（流式响应）
+ * @param resumeId 简历ID
+ * @param message 用户消息
+ * @param onChunk 处理流式数据块的回调函数
+ * @returns Promise<void>
+ */
+export const getResumeOptimization = async (
+  resumeId: number,
+  message: string,
+  onChunk: (chunk: string) => void
+): Promise<void> => {
+  try {
+    // 这里使用模拟的流式响应，实际项目中可以替换为真实的API调用
+    const mockResponse = `基于您选择的简历，我为您提供以下优化建议：
+
+1. **技能展示优化**
+   - 建议将技能按照熟练程度分类展示
+   - 添加具体的项目应用案例
+
+2. **工作经历描述**
+   - 使用STAR法则重新描述工作经历
+   - 量化工作成果，如"提升了30%的效率"
+
+3. **教育背景**
+   - 突出与目标职位相关的课程
+   - 添加在校期间的实习或项目经验
+
+4. **项目经历**
+   - 详细描述技术栈和解决方案
+   - 强调项目的商业价值
+
+您希望我帮您具体优化哪个部分？`;
+
+    // 模拟流式响应
+    const words = mockResponse.split(' ');
+    for (let i = 0; i < words.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      onChunk(words[i] + ' ');
+    }
+  } catch (error) {
+    console.error('获取优化建议失败:', error);
+    throw error;
+  }
+};
