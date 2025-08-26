@@ -101,6 +101,8 @@ export default function WrittenTestPage() {
   
   // 提示状态管理 - 记录每道题是否已经请求过提示
   const [hintRequested, setHintRequested] = useState<Record<string, boolean>>({});
+  // 自动生成开关：开启时，长时间不动才会自动生成
+  const [autoGenerateEnabled, setAutoGenerateEnabled] = useState<boolean>(false);
 
   // 关闭评测弹窗并返回list页面
   const handleCloseEvaluationModal = () => {
@@ -176,6 +178,13 @@ export default function WrittenTestPage() {
     // 重置倒计时
     setTimeRemaining(30);
     
+    // 若未开启自动生成，则不启动定时器
+    if (!autoGenerateEnabled) {
+      setInactivityTimer(null);
+      setLastCodeChange(Date.now());
+      return;
+    }
+
     // 设置新的计时器（30秒）
     const timer = setTimeout(() => {
       console.log('计时器触发，发送提示请求');
@@ -257,6 +266,7 @@ export default function WrittenTestPage() {
 
   // 倒计时效果
   useEffect(() => {
+    if (!autoGenerateEnabled) return; // 关闭时不倒计时、不触发
     if (timeRemaining > 0 && !isTyping) {
       const countdownTimer = setTimeout(() => {
         setTimeRemaining(prev => {
@@ -271,7 +281,7 @@ export default function WrittenTestPage() {
       console.log('倒计时结束，手动触发提示请求');
       sendHintRequest();
     }
-  }, [timeRemaining, isTyping, currentProblem, hintRequested]);
+  }, [timeRemaining, isTyping, currentProblem, hintRequested, autoGenerateEnabled]);
 
   // 组件卸载时清理计时器
   useEffect(() => {
@@ -562,8 +572,8 @@ export default function WrittenTestPage() {
                题目 {currentProblemIndex + 1}/{problemList.length}: {currentProblem?.title}
              </span>
              
-                           {/* 可视化计时器 */}
-              {!isTyping && currentProblem && !hintRequested[currentProblem.id] && (
+                          {/* 可视化计时器（仅在开关打开时显示） */}
+              {!isTyping && autoGenerateEnabled && currentProblem && !hintRequested[currentProblem.id] && (
                 <div className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-lg">
                   <div className={`w-3 h-3 rounded-full animate-pulse ${timeRemaining <= 5 ? 'bg-red-500' : timeRemaining <= 10 ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
                   <span className="text-xs text-gray-300">
@@ -590,7 +600,26 @@ export default function WrittenTestPage() {
                 </div>
               )}
              
-                           <button
+              {/* 自动生成开关 */}
+              <label className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded text-sm select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoGenerateEnabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setAutoGenerateEnabled(enabled);
+                    if (enabled) {
+                      resetInactivityTimer();
+                    } else if (inactivityTimer) {
+                      clearTimeout(inactivityTimer);
+                      setInactivityTimer(null);
+                    }
+                  }}
+                />
+                自动生成代码
+              </label>
+              
+                          <button
                 onClick={() => setShowProblemList(!showProblemList)}
                 className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-sm"
               >

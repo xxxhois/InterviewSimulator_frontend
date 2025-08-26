@@ -11,6 +11,8 @@ export class UnauthorizedError extends Error {
 // API配置
 const API_CONFIG = {
   baseUrl: 'http://localhost:8000',
+  //baseUrl: 'https://blueprint.mingjia.tech:2004',
+  
 };
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';

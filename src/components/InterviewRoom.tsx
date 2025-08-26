@@ -116,6 +116,7 @@ export default function InterviewRoom() {
     console.log('token', token);
     //let ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
     let ws_url = 'ws://localhost:8000/ws/webrtc/?token=' + token;
+    //let ws_url = 'wss://blueprint.mingjia.tech:2004/ws/webrtc/?token=' + token;
     console.log('ws_url', ws_url);
     const ws = new window.WebSocket(ws_url);
     wsRef.current = ws;

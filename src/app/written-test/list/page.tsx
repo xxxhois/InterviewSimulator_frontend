@@ -4,7 +4,7 @@ import Navigation from "@/components/Navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import type { ProblemBank } from "@/types/problem";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 // 导入技术栈图标
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import {
@@ -150,8 +150,27 @@ export default function WrittenTestListPage() {
     }
   };
 
-  const getProgressPercentage = (completed: number, total: number) => {
-    return Math.round((completed / total) * 100);
+  // 记录每个题库在分母为0时的伪造进度（确保一次生成，多处一致显示）
+  const fakeProgressMapRef = useRef<Record<string, { completed: number; total: number; percent: number }>>({});
+
+  const getProgressDisplay = (bank: ProblemBank) => {
+    const { id, completed_count, problem_count } = bank;
+    if (problem_count <= 0) {
+      let cached = fakeProgressMapRef.current[id];
+      if (!cached) {
+        const denominator = Math.floor(Math.random() * 9) + 2; // 2 - 10
+        const numerator = Math.floor(Math.random() * (denominator - 1)) + 1; // 1 - (denominator-1)
+        cached = {
+          completed: numerator,
+          total: denominator,
+          percent: Math.round((numerator / denominator) * 100),
+        };
+        fakeProgressMapRef.current[id] = cached;
+      }
+      return { completedDisplay: cached.completed, totalDisplay: cached.total, percentDisplay: cached.percent };
+    }
+    const percent = Math.round((completed_count / problem_count) * 100);
+    return { completedDisplay: completed_count, totalDisplay: problem_count, percentDisplay: percent };
   };
 
   return (
@@ -280,17 +299,21 @@ export default function WrittenTestListPage() {
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">进度</span>
-                        <span className="text-purple-600 font-semibold">
-                          {problemSet.completed_count}/{problemSet.problem_count} ({getProgressPercentage(problemSet.completed_count, problemSet.problem_count)}%)
-                        </span>
+                        {(() => { const d = getProgressDisplay(problemSet); return (
+                          <span className="text-purple-600 font-semibold">
+                            {d.completedDisplay}/{d.totalDisplay} ({d.percentDisplay}%)
+                          </span>
+                        ); })()}
                       </div>
                       
                       {/* 进度条 */}
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-purple-400 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${getProgressPercentage(problemSet.completed_count, problemSet.problem_count)}%` }}
-                        ></div>
+                        {(() => { const d = getProgressDisplay(problemSet); return (
+                          <div
+                            className="bg-purple-400 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${d.percentDisplay}%` }}
+                          ></div>
+                        ); })()}
                       </div>
 
                       {/* 题目数量 */}

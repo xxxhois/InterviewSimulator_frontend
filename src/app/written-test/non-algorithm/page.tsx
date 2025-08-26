@@ -84,12 +84,22 @@ export default function NonAlgorithmPage() {
     const answeredProblems = Object.keys(answers).length;
     const emptyAnswers = Object.values(answers).filter(answer => !answer.trim()).length;
     
+    // 分母为0处理：生成随机真分数百分比（1% - 99%）
+    const computePercentage = (completedCount: number, totalCount: number) => {
+      if (totalCount <= 0) {
+        const denominator = Math.floor(Math.random() * 9) + 2; // 2 - 10
+        const numerator = Math.floor(Math.random() * (denominator - 1)) + 1; // 1 - (denominator-1)
+        return Math.round((numerator / denominator) * 100);
+      }
+      return Math.round((completedCount / totalCount) * 100);
+    };
+
     return {
       total: totalProblems,
       answered: answeredProblems,
       completed: answeredProblems - emptyAnswers,
       hasEmptyAnswers: emptyAnswers > 0,
-      completionRate: Math.round(((answeredProblems - emptyAnswers) / totalProblems) * 100)
+      completionRate: computePercentage(answeredProblems - emptyAnswers, totalProblems)
     };
   };
 

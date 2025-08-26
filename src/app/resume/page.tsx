@@ -484,7 +484,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('basic')}>
                 <h2 className="text-lg font-bold text-purple-700">基本信息</h2>
-                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('basic') && !isLoading && (
@@ -574,7 +574,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('work')}>
                 <h2 className="text-lg font-bold text-purple-700">工作经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('work') && !isLoading && (
@@ -697,7 +697,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('project')}>
                 <h2 className="text-lg font-bold text-purple-700">项目经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('project') && !isLoading && (
@@ -802,7 +802,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('education')}>
                 <h2 className="text-lg font-bold text-purple-700">教育经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('education') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('education') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('education') && !isLoading && (
@@ -907,7 +907,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('custom')}>
                 <h2 className="text-lg font-bold text-purple-700">自定义分区</h2>
-                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('custom') && !isLoading && (
