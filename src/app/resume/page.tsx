@@ -14,6 +14,7 @@ import {
   handleResumeUpload
 } from '@/api/resume';
 import Navigation from '@/components/Navigation';
+import ResumeOptimizer from '@/components/ResumeOptimizer';
 import { showToast } from '@/components/Toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -44,7 +45,7 @@ export default function ResumePage() {
   const [formBasic, setFormBasic] = useState({ ...emptyForm });
   const [basicSubmitted, setBasicSubmitted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [showSmartSidebar, setShowSmartSidebar] = useState(false);
+  const [showResumeOptimizer, setShowResumeOptimizer] = useState(false);
   const [workExperiences, setWorkExperiences] = useState<any[]>([]);
   const [projectExperiences, setProjectExperiences] = useState<any[]>([]);
   const [educationExperiences, setEducationExperiences] = useState<any[]>([]);
@@ -492,6 +493,14 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
   };
 
+  // 处理应用优化建议
+  const handleApplyOptimization = (optimizationData: any) => {
+    console.log('应用优化建议:', optimizationData);
+    // 这里可以添加具体的优化逻辑
+    // 例如：根据优化建议自动修改简历内容
+    showToast('优化建议已应用，请查看更新后的简历内容');
+  };
+
   // // 上传附件（解析接口预留）
   // const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
   //   const file = e.target.files?.[0];
@@ -571,7 +580,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('basic')}>
                 <h2 className="text-lg font-bold text-purple-700">基本信息</h2>
-                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('basic') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('basic') && !isLoading && (
@@ -661,7 +670,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('work')}>
                 <h2 className="text-lg font-bold text-purple-700">工作经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('work') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('work') && !isLoading && (
@@ -784,7 +793,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('project')}>
                 <h2 className="text-lg font-bold text-purple-700">项目经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('project') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('project') && !isLoading && (
@@ -889,7 +898,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('education')}>
                 <h2 className="text-lg font-bold text-purple-700">教育经历</h2>
-                <motion.span animate={{ rotate: openSections.includes('education') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('education') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('education') && !isLoading && (
@@ -994,7 +1003,7 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <motion.section layout className="mb-6">
               <motion.div layout className="flex items-center justify-between cursor-pointer select-none" onClick={() => toggleSection('custom')}>
                 <h2 className="text-lg font-bold text-purple-700">自定义分区</h2>
-                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">click_to_open</motion.span>
+                <motion.span animate={{ rotate: openSections.includes('custom') ? 90 : 0 }} className="material-icons text-purple-400">Expand</motion.span>
               </motion.div>
               <AnimatePresence>
                 {openSections.includes('custom') && !isLoading && (
@@ -1077,36 +1086,19 @@ const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 className="bg-gradient-to-r from-purple-400 to-purple-600 text-white px-6 py-2 rounded-lg font-bold w-full mt-2"
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => setShowSmartSidebar(true)}
+                onClick={() => setShowResumeOptimizer(true)}
               >
                 智能优化简历
               </motion.button>
             </motion.div>
           </div>
-          {/* 智能优化对话边栏 */}
-          <AnimatePresence>
-            {showSmartSidebar && (
-              <motion.div
-                key="smart-sidebar"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="fixed top-0 right-0 h-full w-[400px] bg-white shadow-2xl z-50 flex flex-col p-8 border-l border-purple-200"
-              >
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-purple-700 mb-4">智能优化简历（预留）</h2>
-                  <div className="text-gray-500">这里将展示AI优化建议和对话...</div>
-                </div>
-                <button
-                  className="mt-8 bg-purple-600 text-white px-6 py-2 rounded font-bold w-full"
-                  onClick={() => setShowSmartSidebar(false)}
-                >
-                  关闭
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* 简历优化组件 */}
+          <ResumeOptimizer
+            isOpen={showResumeOptimizer}
+            onClose={() => setShowResumeOptimizer(false)}
+            resumeList={resumeList}
+            onApplyOptimization={handleApplyOptimization}
+          />
         </div>
       </div>
     </div>
